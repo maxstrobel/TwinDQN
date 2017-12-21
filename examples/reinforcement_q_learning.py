@@ -9,6 +9,8 @@ This tutorial shows how to use PyTorch to train a Deep Q Learning (DQN) agent
 on the CartPole-v0 task from the `OpenAI Gym <https://gym.openai.com/>`__.
 
 **Task**
+tutorial link:
+http://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
 
 The agent has to decide between two actions - moving the cart left or
 right - so that the pole attached to it stays upright. You can find an
