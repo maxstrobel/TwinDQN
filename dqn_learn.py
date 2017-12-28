@@ -14,7 +14,7 @@ from itertools import count
 from collections import namedtuple
 from copy import deepcopy
 
-from utils import get_screen_resize
+from utils import get_screen_resize, rgb2gr
 
 from dqn import DQN
 
@@ -46,19 +46,23 @@ def dqn_learning(
 	num_frames = 4,
 	batch_size = 2048
 ):
+    #   num_frames: history of frames as input to DQN
+    #   batch_size: size of random samples of memory
 	env = gym.make("Breakout-v0")
 
 	num_actions = env.action_space.n
 
-	model = DQN(in_channels = 3 * num_frames,num_actions = num_actions)
+    #   so far use rgb channels
+	model = DQN(channels_in = num_frames,num_actions = num_actions)
 
 	if USE_CUDA:
 		model.cuda()
 
+    #initialize optimizer
 	opt = optim.Adam(model.parameters())
 	memory = ReplayMemory(200000)
 
-
+    #   greedy_epsilon_selection of an action
 	def select_action(dqn, observation,eps):
 		rnd = random.random()
 		if rnd > eps:
@@ -66,12 +70,16 @@ def dqn_learning(
 		else:
 			return dqn(Variable(observation, volatile=True)).type(torch.FloatTensor).data.max(1)[1].view(1,1)
 
+    #   function to optimize model according to reinforcement_q_learning.py's optimization function
 	def optimization(last_state):
+        #   not enough memory yet
 		if len(memory) < batch_size+1:
 			return
+        #   get random samples
 		transitions = memory.sample(batch_size)
 		batch = Transition(*zip(*transitions))
 
+        #   mask of which states are not final states(done = True from env.step)
 		non_final_mask = torch.LongTensor(tuple(map(lambda s: s is not None, batch.next_state)))
 
 		non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
@@ -115,35 +123,40 @@ def dqn_learning(
 
 	for i in range(episodes):
 		env.reset()
+        #   list of k last frames
 		last_k_frames = {}
 		for j in range(num_frames):
-			last_k_frames[j] = get_screen_resize(env)
+			last_k_frames[j] = rgb2gr(get_screen_resize(env))
 
 		state = torch.cat((last_k_frames[0], last_k_frames[1], last_k_frames[2], last_k_frames[3]),1)
 		total_reward = 0
 
 		for t in count():
+            # epsilon for greedy epsilon selection, with epsilon decay
 			eps = 0.01 + (0.9-0.01)*math.exp(-1.*num_steps/200)
 			action = select_action(model, state, eps)
 
 			num_steps += 1
-
+            
 			_, reward, done, _ = env.step(action[0,0])
 			total_reward += reward
 			if reward < 0.0:
 				print(reward)
+            #   clamp rewards
 			reward = torch.Tensor([max(-1.0,min(reward,1.0))])
 
+            #   save latest frame, discard oldest
 			last_k_frames[0] = last_k_frames[1]
 			last_k_frames[1] = last_k_frames[2]
 			last_k_frames[2] = last_k_frames[3]
-			last_k_frames[3] = get_screen_resize(env)
+			last_k_frames[3] = rgb2gr(get_screen_resize(env))
 
 			if not done:
 				next_state = torch.cat((last_k_frames[0], last_k_frames[1], last_k_frames[2], last_k_frames[3]),1)
 			else:
 				next_state = None
 
+            #   save to memory
 			memory.push(state, action, next_state, reward)
 
 			optimization(state)

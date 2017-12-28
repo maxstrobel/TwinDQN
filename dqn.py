@@ -50,9 +50,9 @@ class DQN(nn.Module):
         #print('conv3',x.size())
         x = x.view(N,-1) # change the view from 2d to 1d
         #print('conv3_flat', x.size())
-        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc4(x))
         #print('fc1',x.size())
-        x = self.fc2(x)
+        x = self.fc5(x)
         #print('score',x.size())
 
         
