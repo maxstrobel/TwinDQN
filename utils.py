@@ -20,9 +20,38 @@ LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
 ByteTensor = torch.cuda.ByteTensor if use_cuda else torch.ByteTensor
 Tensor = FloatTensor
 
+#####################################################
+#
+# Simple & fast...
+#
+
+
+def rgb2gray(img):
+    return np.mean(img, axis=2).astype(np.uint8)
+
+def crop(img, h1, h2, w1, w2):
+    return img[h1:h2, w1:w2]
+
+def downsample(img):
+    return img[::2, ::2]
+
+def breakout_preprocess(img):
+    return rgb2gray(downsample(crop(img, 32, 195, 8, 152)))
+
+def rgb2pytorch(img):
+    return torch.from_numpy(img.transpose(2, 0, 1)).unsqueeze(0).type(Tensor)
+
+def gray2pytorch(img):
+    return torch.from_numpy(img[:,:,None].transpose(2, 0, 1)).unsqueeze(0).type(Tensor)
+                         
 
 
 
+#####################################################
+#
+# Eher aufwendige Funktionen, die wirkliche Helligkeitswerte... berechnen
+# => kann gelöscht werden, wenn nicht mehr gebraucht
+    
 
 # Resize an image to output_size
 output_size = (84,84)
@@ -68,7 +97,7 @@ def get_screen_resize(env):
     # Resize, and add a batch dimension (BCHW)
     return resize(screen).unsqueeze(0).type(Tensor)
 
-def rgb2gray(img):
+def rgb2gr(img):
     """
     convert rgb to grayscale by averaging channel intensities
     """
