@@ -14,7 +14,7 @@ class DQN(nn.Module):
 
         # Input 84x84
         self.conv_block1 = nn.Sequential(
-                nn.Conv2d(in_channels=1,
+                nn.Conv2d(in_channels=3,
                           out_channels=32,
                           kernel_size=8,
                           stride=4),
