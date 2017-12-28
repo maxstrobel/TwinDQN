@@ -22,21 +22,50 @@ USE_CUDA = torch.cuda.is_available()
 tType = torch.cuda.FloatTensor if USE_CUDA else torch.FloatTensor
 
 Transition = namedtuple('Transition', ('state','action','next_state','reward'))
+TransitionIdx = namedtuple('transitionIdx', ('idx', 'action', 'next_idx', 'reward'))
 
 class ReplayMemory(object):
-	def __init__(self, capacity):
+	def __init__(self, capacity, num_history_frames = 4):
 		self.capacity = capacity
 		self.memory = []
-		self.position = 0
+		self.memoryTransitions = []
+		self.num_frames = 0
+		self.num_transitions = 0
+		self.num_history = 4
 
-	def push(self, *args):
+	def getCurrentIndex(self):
+		return self.num_frames
+
+	def pushTransition(self,*args):
+		if len(self.memoryTransitions) < self.capacity:
+			self.memoryTransitions.append(None)
+		self.memoryTransitions[self.num_transitions] = TransitionIdx(*args)
+		self.num_transitions = (self.num_transitions+1)% self.capacity
+
+	def pushFrame(self, frame):
 		if len(self.memory)< self.capacity:
 			self.memory.append(None)
-		self.memory[self.position] = Transition(*args)
-		self.position = (self.position+1)%self.capacity
+		self.memory[self.num_frames] = frame
+		self.num_frames = (self.num_frames +1)% self.capacity
 
-	def sample(self, batch_size):
-		return random.sample(self.memory, batch_size)
+	def sampleTransition(self, batch_size):
+		rnd_transitions = random.sample(self.memoryTransitions, batch_size)
+		output = []
+		for i in range(len(rnd_transitions)):
+			state = self.memory[rnd_transitions[i][0]]
+			next_state = state
+			for j in range(self.num_history):
+				if j > 0:
+					next_state = torch.cat((self.memory[(rnd_transitions[i][0]-1-j)%self.capacity],next_state),1)
+				if j < self.num_history - 1:
+					state = torch.cat((self.memory[(rnd_transitions[i][0]-1-j)%self.capacity], state),1)
+
+			action = rnd_transitions[i][1]
+			reward = rnd_transitions[i][3]
+			output.append(None)
+			output[i] = Transition(state.cuda(),action.cuda(), next_state.cuda(), reward.cuda())
+
+		return output
 
 	def __len__(self):
 		return len(self.memory)
@@ -44,7 +73,7 @@ class ReplayMemory(object):
 
 def dqn_learning(
 	num_frames = 4,
-	batch_size = 2048
+	batch_size = 1024
 ):
     #   num_frames: history of frames as input to DQN
     #   batch_size: size of random samples of memory
@@ -59,13 +88,13 @@ def dqn_learning(
 		model.cuda()
 
     #initialize optimizer
-	opt = optim.Adam(model.parameters())
-	memory = ReplayMemory(200000)
+	opt = optim.RMSprop(model.parameters(), lr = 0.00025,alpha=0.95, eps=0.01)
+	memory = ReplayMemory(500000)
 
     #   greedy_epsilon_selection of an action
 	def select_action(dqn, observation,eps):
 		rnd = random.random()
-		if rnd > eps:
+		if rnd < eps:
 			return torch.LongTensor([[random.randrange(num_actions)]])
 		else:
 			return dqn(Variable(observation, volatile=True)).type(torch.FloatTensor).data.max(1)[1].view(1,1)
@@ -73,10 +102,10 @@ def dqn_learning(
     #   function to optimize model according to reinforcement_q_learning.py's optimization function
 	def optimization(last_state):
         #   not enough memory yet
-		if len(memory) < batch_size+1:
+		if len(memory) < 50000:
 			return
         #   get random samples
-		transitions = memory.sample(batch_size)
+		transitions = memory.sampleTransition(batch_size)
 		batch = Transition(*zip(*transitions))
 
         #   mask of which states are not final states(done = True from env.step)
@@ -115,12 +144,17 @@ def dqn_learning(
 		opt.step()
 
 
-	episodes = 1000
+	episodes = 100000
 
 	best_mean_episode = -float('inf')
 	mean_episode = -float('nan')
 	num_steps = 0
-
+	torch.save(model.state_dict(),"D:/DL4CV/modelParams")
+	env.reset()
+	memory.pushFrame(rgb2gr(get_screen_resize(env)).cpu())
+	memory.pushFrame(rgb2gr(get_screen_resize(env)).cpu())
+	memory.pushFrame(rgb2gr(get_screen_resize(env)).cpu())
+	memory.pushFrame(rgb2gr(get_screen_resize(env)).cpu())
 	for i in range(episodes):
 		env.reset()
         #   list of k last frames
@@ -130,18 +164,21 @@ def dqn_learning(
 
 		state = torch.cat((last_k_frames[0], last_k_frames[1], last_k_frames[2], last_k_frames[3]),1)
 		total_reward = 0
-
+		current_lives = 5
 		for t in count():
             # epsilon for greedy epsilon selection, with epsilon decay
-			eps = 0.01 + (0.9-0.01)*math.exp(-1.*num_steps/200)
+			eps = 0.05 + (1-0.05)*math.exp(-2.*num_steps/200)
 			action = select_action(model, state, eps)
+			if len(memory) >= 50000:
+				num_steps+=1
 
-			num_steps += 1
-            
-			_, reward, done, _ = env.step(action[0,0])
+			_, reward, done, info = env.step(action[0,0])
+			lives = info['ale.lives']
+			if current_lives != lives:
+				current_lives = lives
+				#reward = -1.0
+
 			total_reward += reward
-			if reward < 0.0:
-				print(reward)
             #   clamp rewards
 			reward = torch.Tensor([max(-1.0,min(reward,1.0))])
 
@@ -152,21 +189,27 @@ def dqn_learning(
 			last_k_frames[3] = rgb2gr(get_screen_resize(env))
 
 			if not done:
-				next_state = torch.cat((last_k_frames[0], last_k_frames[1], last_k_frames[2], last_k_frames[3]),1)
+				next_state = torch.cat((last_k_frames[0], last_k_frames[1], last_k_frames[2], last_k_frames[3]),1).cpu()
 			else:
 				next_state = None
 
             #   save to memory
-			memory.push(state, action, next_state, reward)
+
+			memory.pushFrame(last_k_frames[3].cpu())
+			memory.pushTransition((memory.getCurrentIndex()-1)%memory.capacity, action.cpu(), memory.getCurrentIndex()%memory.capacity, reward.cpu())
 
 			optimization(state)
 
-			state = next_state
+			if next_state is not None and USE_CUDA:
+				state = next_state.cuda()
 
 			if done:
 				break;
 			env.render()
 		print(total_reward)
-
+		print(len(memory))
+		if i % 2000 == 0:
+            		torch.save(model.state_dict(),'D:/DL4CV/modelParams'+str(i+1))
+	torch.save(model.state_dict(),'D:/DL4CV/modelParams')
 dqn_learning()
 
