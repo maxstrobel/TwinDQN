@@ -10,11 +10,11 @@ import torch.nn.functional as F
 
 class DQN(nn.Module):
 
-    def __init__(self, num_actions=4):
+    def __init__(self, channels_in = 1, num_actions=4):
         super(DQN, self).__init__()
 
         # Input 84x84
-        self.conv1 = nn.Conv2d(in_channels=1,
+        self.conv1 = nn.Conv2d(in_channels=channels_in,
                           out_channels=32,
                           kernel_size=8,
                           stride=4)
