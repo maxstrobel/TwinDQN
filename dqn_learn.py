@@ -187,7 +187,7 @@ def dqn_learning(
 	num_steps = 0
 	torch.save(model.state_dict(),path_to_dir+'\modelParams\paramsStart')
 	env.reset()
-	eps_decay = 75000
+	eps_decay = 30000
 	for i in range(episodes):
 		env.reset()
         #   list of k last frames
@@ -202,9 +202,9 @@ def dqn_learning(
 		current_lives = 5
 		for t in count():
             # epsilon for greedy epsilon selection, with epsilon decay
-			eps = 0.05 + (1-0.05)*math.exp(-1.*num_steps/eps_decay)
+			eps = 0.01 + (0.9-0.01)*math.exp(-1.*num_steps/eps_decay)
 			action = select_action(model, state, eps)
-
+			num_steps +=1
 			_, reward, done, info = env.step(action[0,0])
 			lives = info['ale.lives']
 			if current_lives != lives:
@@ -240,7 +240,7 @@ def dqn_learning(
 				break;
 			env.render()
 		print("episode: ",i,"\treward: ",total_reward, "\tlen of mem: ", len(memory))
-		if (i-200) % 250 == 0:
+		if (i) % 500 == 0:
             		torch.save(model.state_dict(),path_to_dir+'\modelParams\paramsAfter'+str(i))
 	torch.save(model.state_dict(),path_to_dir+'\modelParams\paramsFinal')
 dqn_learning()
