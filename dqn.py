@@ -26,6 +26,7 @@ class DQN(nn.Module):
                           out_channels=64,
                           kernel_size=3,
                           stride=1)
+        # TODO: make dimensions more generic
         self.fc4 = nn.Linear(in_features=64*7*7,
                           out_features=512)
         self.fc5 = nn.Linear(in_features=512,
