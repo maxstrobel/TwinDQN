@@ -76,16 +76,16 @@ class ReplayMemory(object):
 
 
 def dqn_learning(
-	num_frames = 16,
-	batch_size = 128,
+	num_frames = 6,
+	batch_size = 64,
 	mem_size = 524288,
 	learning_rate = 0.00025,
 	alpha = 0.95,
 	epsilon = 0.01,
-	start_train_after = 25000,
+	start_train_after = 75000,
 	num_episodes = 100000,
-	update_params_each_k = 1000,
-	optimize_each_k = 5
+	update_params_each_k = 5000,
+	optimize_each_k = 4
 ):
     #   num_frames: history of frames as input to DQN
     #   batch_size: size of random samples of memory
@@ -125,13 +125,14 @@ def dqn_learning(
 		batch = Transition(*zip(*transitions))
 
         #   mask of which states are not final states(done = True from env.step)
-		non_final_mask = torch.ByteTensor(batch_size)
+		non_final_mask = torch.ByteTensor(tuple(map(lambda s: s is not None,
+                                          batch.next_state)))
 
-		for k in range(batch_size):
-			if batch.next_state[k] is None:
-				non_final_mask[k] = 1
-			else:
-				non_final_mask[k] = 0
+		#for k in range(batch_size):
+		#	if batch.next_state[k] is None:
+		#		non_final_mask[k] = 1
+		#	else:
+		#		non_final_mask[k] = 0
 
 		if batch.next_state[0] is None:
 			non_final_next_states = last_state
@@ -143,9 +144,9 @@ def dqn_learning(
 				non_final_next_states = torch.cat((non_final_next_states,last_state),0)
 			else:
 				non_final_next_states = torch.cat((non_final_next_states, batch.next_state[x]),0)
-		non_final_next_states = Variable(non_final_next_states, volatile=True)
+		non_final_next_states = Variable(non_final_next_states/255.0, volatile=True)
 
-		state_batch = Variable(torch.cat(batch.state))
+		state_batch = Variable(torch.cat(batch.state)/255.0)
 		action_batch = Variable(torch.cat(batch.action))
 		reward_batch = Variable(torch.cat(batch.reward))
 
@@ -158,7 +159,7 @@ def dqn_learning(
 
 		state_action_values = torch.gather(model(state_batch),1, action_batch)
 
-		next_max_values = target_model(non_final_next_states).max(1)[0]
+		next_max_values = target_model(non_final_next_states).detach().max(1)[0]
 		next_state_values = Variable(torch.zeros(batch_size).type(tType))
 		next_state_values[non_final_mask]= next_max_values
 
@@ -167,27 +168,30 @@ def dqn_learning(
 		next_state_values.volatile = False
 		expected_state_action_values = (next_state_values*0.999) + reward_batch
 
-		#loss = expected_state_action_values - state_action_values
-		#loss = loss.clamp(-1,1) * -1.0
+		loss = expected_state_action_values - state_action_values
+		loss = loss.clamp(-1,1) * -1.0
 
-		loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
+		#loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
 
 		opt.zero_grad()
-		loss.backward()
-		#state_action_values.backward(loss.data.unsqueeze(1))
-		for param in model.parameters():
-			param.grad.data.clamp_(-1,1)
+		#loss.backward()
+		state_action_values.backward(loss.data.unsqueeze(1))
+		#for param in model.parameters():
+			#param.grad.data.clamp_(-1,1)
 		opt.step()
 
 		if num_param_updates % update_params_each_k  == 0:
 			target_model.load_state_dict(model.state_dict())
+			print('param update!')
 
 	episodes = num_episodes
 
 	num_steps = 0
+	avg_score = 0
+	best_score = 0
 	torch.save(model.state_dict(),path_to_dir+'\modelParams\paramsStart')
 	env.reset()
-	eps_decay = 30000
+	eps_decay = 5000
 	for i in range(episodes):
 		env.reset()
         #   list of k last frames
@@ -202,7 +206,7 @@ def dqn_learning(
 		current_lives = 5
 		for t in count():
             # epsilon for greedy epsilon selection, with epsilon decay
-			eps = 0.01 + (0.9-0.01)*math.exp(-1.*num_steps/eps_decay)
+			eps = 0.01 + (0.95-0.01)*math.exp(-1.*(num_steps-start_train_after)/eps_decay)
 			action = select_action(model, state, eps)
 			num_steps +=1
 			_, reward, done, info = env.step(action[0,0])
@@ -210,10 +214,9 @@ def dqn_learning(
 			if current_lives != lives:
 				current_lives = lives
 				#reward = -1.0
-
-			total_reward += reward
             #   clamp rewards
 			reward = torch.Tensor([max(-1.0,min(reward,1.0))])
+			total_reward += reward[0]
 
             #   save latest frame, discard oldest
 			for j in range(num_frames-1):
@@ -239,8 +242,14 @@ def dqn_learning(
 			if done:
 				break;
 			env.render()
-		print("episode: ",i,"\treward: ",total_reward, "\tlen of mem: ", len(memory))
-		if (i) % 500 == 0:
+		avg_score += total_reward
+		print("episode: ",(i+1),"\treward: ",total_reward, "\tnum steps: ", num_steps)
+		if total_reward > best_score:
+			best_score = total_reward
+		if (i-49) % 50 == 0:
+			print("For 50 episodes:\taverage score: ", avg_score/50, "\tbest score so far: ", best_score)
+			avg_score = 0
+		if (i-200) % 500 == 0:
             		torch.save(model.state_dict(),path_to_dir+'\modelParams\paramsAfter'+str(i))
 	torch.save(model.state_dict(),path_to_dir+'\modelParams\paramsFinal')
 dqn_learning()
