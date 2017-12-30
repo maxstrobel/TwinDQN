@@ -27,7 +27,7 @@ class Agent(object):
     def __init__(self,
                  game,
                  dimensions,
-                 mem_size = 8000,
+                 mem_size = 8000, # == 1.8 GB memory
                  state_buffer_size = 4,
                  learning_rate = 1e-4,
                  downsampling_rate=2,
@@ -75,13 +75,14 @@ class Agent(object):
         self.epsilon = EPSILON_START
         
         # Batch size - optimization
-        self.batch_size = 16
+        self.batch_size = 32
         
         # Steps
         self.steps = 0
         
         # Frame skips
-        #self.frame_skips = 
+        self.frame_skips = 4 # nature paper
+        
         
     def init_state(self, observation):
         """
@@ -154,10 +155,14 @@ class Agent(object):
         """
         
         """
-        num_episodes = 1000
+        save_model_episodes = 10000
+        log_avg_episodes = 100
+        num_episodes = 100000
+        best_score = 0
+        avg_score = 0
         
         # Loop over games to play
-        for i_episode in range(num_episodes):
+        for i_episode in range(1, num_episodes):
             # Reset environment
             obs = self.env.reset()
             state = self.init_state(obs)
@@ -168,19 +173,23 @@ class Agent(object):
                 #self.env.game.render() # TODO: comment out => only debug
                 action = self.select_action(state)
                 
-                # TODO: Check whether frame skipping is needed
-                
-                
-                observation, reward, done, info = self.env.step(action)
-                # TODO: Check reward
-                total_reward += reward
-                
-                # Add current observation to state buffer (short term memory)
-                if not done:
+                # skip some frames
+                for _ in range(self.frame_skips):
+                    observation, reward, done, info = self.env.step(action)
+                    # Add current observation to state buffer (short term memory)
                     self.add_observation(observation)
+                    total_reward += reward
+                
+                    # Exit frame skipping loop, if game over
+                    if done:
+                        break
+                
+                # Update next_state
+                if not done:
                     next_state = self.get_recent_state()
                 else:
                     next_state = None
+                    break
                     
                 # Store current transition in replay memory (long term memory)
                 self.replay.push(state, action, reward, next_state)
@@ -194,15 +203,34 @@ class Agent(object):
                 
                 self.steps += 1
                 
+            # TODO: better loggging...
             print('Episode', i_episode,
                   '\tloss', loss,
                   '\treward', total_reward,
                   '\treplay size', len(self.replay))
+            
+            avg_score += reward
+            if reward > best_score:
+                best_score = reward
+                
+            if i_episode % log_avg_episodes == 0:
+                print('Episode:', i_episode,
+                      'avg on last', log_avg_episodes, 'games:', avg_score/log_avg_episodes,
+                      'best score so far:', best_score)
+                # Logfile
+                with open("dqn_train.log", "a") as logfile:
+                    logfile.write('Episode:', i_episode,
+                                  'avg on last', log_avg_episodes, 'games:', avg_score/log_avg_episodes,
+                                  'best score so far:', best_score)
+                avg_score = 0
+                
+            if i_episode % save_model_episodes == 0:
+                self.net.save('dqn_' + str(i_episode) + '_episodes.model')
                 
     def optimize(self):
         """
         """
-        gamma = 0.999
+        gamma = 0.99 # nature paper
         
         # Sample a transition
         transition = self.replay.sample(self.batch_size)
