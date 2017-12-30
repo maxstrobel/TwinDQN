@@ -161,6 +161,11 @@ class Agent(object):
         best_score = 0
         avg_score = 0
         
+        # TODO: timestamp for log file
+        filename = 'dqn_train.log' 
+    
+        open(filename, 'w').close() # empty file
+    
         # Loop over games to play
         for i_episode in range(1, num_episodes):
             # Reset environment
@@ -218,10 +223,11 @@ class Agent(object):
                       'avg on last', log_avg_episodes, 'games:', avg_score/log_avg_episodes,
                       'best score so far:', best_score)
                 # Logfile
-                with open("dqn_train.log", "a") as logfile:
-                    logfile.write('Episode:', i_episode,
-                                  'avg on last', log_avg_episodes, 'games:', avg_score/log_avg_episodes,
-                                  'best score so far:', best_score)
+                with open(filename, "a") as logfile:
+                    logfile.write('Episode: '+ str(i_episode)+
+                                  '\t\t\tavg on last ' + str(log_avg_episodes) +
+                                  ' games: ' + str(avg_score/log_avg_episodes) +
+                                  '\t\t\tbest score so far: ' + str(best_score) + '\n')
                 avg_score = 0
                 
             if i_episode % save_model_episodes == 0:
