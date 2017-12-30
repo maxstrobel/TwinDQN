@@ -15,7 +15,8 @@ from itertools import count
 from collections import namedtuple
 from copy import deepcopy
 
-from utils import get_screen_resize, rgb2gr
+from utils import gray2pytorch, breakout_preprocess
+#from environment import Environment
 
 from dqn import DQN
 
@@ -69,7 +70,7 @@ class ReplayMemory(object):
 			reward = rnd_transitions[i][2]
 			output.append(None)
 			if rnd_transitions[i][3]:
-				output[i] = Transition(state.cuda(),action.cuda(), None, reward.cuda())
+				output[i] = Transition(state.type(tType)/255.0, action, None, reward)
 			else:
 				next_state = self.memory[(rnd_transitions[i][0]+1)%self.capacity]
 				for j in range(self.num_history-1):
@@ -77,7 +78,7 @@ class ReplayMemory(object):
 					if not self.memory_full:
 						idx = max(0, idx)
 					next_state = torch.cat((self.memory[(idx)%self.capacity], next_state),1)
-				output[i] = Transition(state.cuda(),action.cuda(), next_state.cuda(), reward.cuda())
+				output[i] = Transition(state.type(tType)/255.0, action, next_state.type(tType)/255.0, reward)
 		return output
 
 	def __len__(self):
@@ -85,13 +86,13 @@ class ReplayMemory(object):
 
 
 def dqn_learning(
-	num_frames = 8,
-	batch_size = 64,
+	num_frames = 4,
+	batch_size = 128,
 	mem_size = 524288,
-	learning_rate = 0.0005,
+	learning_rate = 0.00015,
 	alpha = 0.95,
 	epsilon = 0.01,
-	start_train_after = 75000,
+	start_train_after = 25000,
 	num_episodes = 100000,
 	update_params_each_k = 10000,
 	optimize_each_k = 4
@@ -101,6 +102,8 @@ def dqn_learning(
 	env = gym.make("Breakout-v0")
 
 	num_actions = env.action_space.n
+
+	#envTest = Environment("Breakout-v0", (32, 195, 8, 152), 2, record=False, seed=0)
 
     #   so far use rgb channels
 	model = DQN(channels_in = num_frames,num_actions = num_actions)
@@ -148,14 +151,9 @@ def dqn_learning(
 		else:
 			non_final_next_states = batch.next_state[0]
 
-		for x in range(1,batch_size):
-			if batch.next_state[x] is None:
-				non_final_next_states = torch.cat((non_final_next_states,last_state),0)
-			else:
-				non_final_next_states = torch.cat((non_final_next_states, batch.next_state[x]),0)
-		non_final_next_states = Variable(non_final_next_states/255.0, volatile=True)
-
-		state_batch = Variable(torch.cat(batch.state)/255.0)
+		non_final_next_states = Variable(torch.cat(
+                    [ns for ns in batch.next_state if ns is not None]),volatile=True)
+		state_batch = Variable(torch.cat(batch.state))
 		action_batch = Variable(torch.cat(batch.action))
 		reward_batch = Variable(torch.cat(batch.reward))
 
@@ -175,18 +173,20 @@ def dqn_learning(
 		#next_state_values[non_final_mask] = model(non_final_next_states).max(1)[0]
 
 		next_state_values.volatile = False
-		expected_state_action_values = (next_state_values*0.999) + reward_batch
+		expected_state_action_values = (next_state_values*0.99) + reward_batch
+
+		opt.zero_grad()
 
 		loss = expected_state_action_values - state_action_values
 		loss = loss.clamp(-1,1) * -1.0
 
-		#loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
-
-		opt.zero_grad()
-		#loss.backward()
 		state_action_values.backward(loss.data.unsqueeze(1))
+
+		#loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
+		#loss.backward()
 		#for param in model.parameters():
-			#param.grad.data.clamp_(-1,1)
+		#	param.grad.data.clamp_(-1,1)
+
 		opt.step()
 
 		if num_param_updates % update_params_each_k  == 0:
@@ -199,19 +199,21 @@ def dqn_learning(
 	avg_score = 0
 	best_score = 0
 	torch.save(model.state_dict(),path_to_dir+'\modelParams\paramsStart')
-	env.reset()
-	eps_decay = 100000
+	eps_decay = 15000
 	for i in range(episodes):
 		env.reset()
-        #   list of k last frames
+		screen = env.render(mode='rgb_array')
+		#obsTest = envTest.reset()
+        # # list of k last frames
 		last_k_frames = []
 		for j in range(num_frames):
 			last_k_frames.append(None)
-			last_k_frames[j] = rgb2gr(get_screen_resize(env))
-
-		if i== 0:
+			last_k_frames[j] = gray2pytorch(breakout_preprocess(screen))#rgb2gr(get_screen_resize(env))
+		if i == 0:
 			memory.pushFrame(last_k_frames[0].cpu())
-		state = torch.cat(last_k_frames,1)
+		#last_k_frames = np.squeeze(last_k_frames, axis=1)
+		state = torch.cat(last_k_frames,1).type(tType)/255.0
+
 		total_reward = 0
 		current_lives = 5
 		for t in count():
@@ -219,7 +221,7 @@ def dqn_learning(
 			eps = 0.01 + (0.95-0.01)*math.exp(-1.*(num_steps-start_train_after)/eps_decay)
 			action = select_action(model, state, eps)
 			num_steps +=1
-			_, reward, done, info = env.step(action[0,0])
+			_, reward, done, info = env.step(action[0,0])#envTest.step(action[0,0])
 			lives = info['ale.lives']
 			if current_lives != lives:
 				current_lives = lives
@@ -229,19 +231,20 @@ def dqn_learning(
 			total_reward += reward[0]
 
             #   save latest frame, discard oldest
+			screen = env.render(mode='rgb_array')
 			for j in range(num_frames-1):
 				last_k_frames[j] = last_k_frames[j+1]
-			last_k_frames[num_frames-1] = rgb2gr(get_screen_resize(env))
+			last_k_frames[num_frames-1] = gray2pytorch(breakout_preprocess(screen))#torch.from_numpy(envTest.get_observation())#rgb2gr(get_screen_resize(env))
 
 			if not done:
-				next_state = torch.cat(last_k_frames,1)
+				next_state = torch.cat(last_k_frames,1).type(tType)/255.0
 			else:
 				next_state = None
 
             #   save to memory
 
 			memory.pushFrame(last_k_frames[num_frames - 1].cpu())
-			memory.pushTransition((memory.getCurrentIndex()-1)%memory.capacity, action.cpu(), reward.cpu(), done)
+			memory.pushTransition((memory.getCurrentIndex()-1)%memory.capacity, action, reward, done)
 			if num_steps % optimize_each_k==0:
 				optimization(state,num_param_updates)
 				num_param_updates+=1
@@ -251,7 +254,7 @@ def dqn_learning(
 
 			if done:
 				break;
-			env.render()
+			#env.render()
 		avg_score += total_reward
 		print("episode: ",(i+1),"\treward: ",total_reward, "\tnum steps: ", num_steps)
 		if total_reward > best_score:

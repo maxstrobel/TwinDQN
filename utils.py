@@ -10,6 +10,7 @@ import numpy as np
 from PIL import Image
 import torch
 import torchvision.transforms as T
+import cv2 as cv2
 
 
 
@@ -33,7 +34,7 @@ def crop(img, h1, h2, w1, w2):
     return img[h1:h2, w1:w2]
 
 def downsample(img):
-    return img[::2, ::2]
+    return cv2.resize(img,(84,84))
 
 def breakout_preprocess(img):
     return rgb2gray(downsample(crop(img, 32, 195, 8, 152)))
@@ -42,7 +43,7 @@ def rgb2pytorch(img):
     return torch.from_numpy(img.transpose(2, 0, 1)).unsqueeze(0).type(Tensor)
 
 def gray2pytorch(img):
-    return torch.from_numpy(img[:,:,None].transpose(2, 0, 1)).unsqueeze(0).type(Tensor)
+    return torch.from_numpy(img[:,:,None].transpose(2, 0, 1)).unsqueeze(0)
                          
 
 
