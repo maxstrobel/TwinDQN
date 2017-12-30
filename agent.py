@@ -7,7 +7,9 @@ Created on Fri Dec 29 18:53:57 2017
 """
 import torch
 import torch.optim as optim
+from torch.nn import functional as F
 from torch.autograd import Variable
+
 
 import numpy as np
 from random import random
@@ -25,8 +27,8 @@ class Agent(object):
     def __init__(self,
                  game,
                  dimensions,
-                 mem_size = 10000,
-                 observation_buffer_size = 4,
+                 mem_size = 8000,
+                 state_buffer_size = 4,
                  learning_rate = 1e-4,
                  downsampling_rate=2,
                  record=False, 
@@ -37,7 +39,7 @@ class Agent(object):
         - dimensions: tuple (h1,h2,w1,w2) with dimensions of the game (to crop borders)
                     breakout: (32, 195, 8, 152)
         - mem_size: int length of the replay memory
-        - observation_buffer_size: int number of recent frames used as input for neural network
+        - state_buffer_size: int number of recent frames used as input for neural network
         - learning_rate: float
         - downsampling_rate: int 
         - record: boolean to enable record option
@@ -51,8 +53,10 @@ class Agent(object):
         self.env = Environment(game, dimensions, downsampling_rate, record, seed)
         
         # Neural network
-        self.net = DQN(channels_in = observation_buffer_size,
-                       num_actions = self.env.get_number_of_actions())
+        self.net = DQN(channels_in = state_buffer_size,
+                       num_actions = self.env.get_number_of_actions(),
+                       input_h = self.env.get_height(),
+                       input_w = self.env.get_width())
         if self.use_cuda:
             self.net.cuda()
             
@@ -60,126 +64,224 @@ class Agent(object):
         self.optimizer = optim.Adam(self.net.parameters(), lr=learning_rate)
         # self.optimizer = optim.RMSprop(model.parameters(), lr = learning_rate,alpha=alpha, eps=epsilon)
         
-        # Replay Memory
+        # Replay Memory (Long term memory)
         self.replay = ReplayMemory(mem_size)
         
-        # Buffer for the most recent observations
-        self.observation_buffer_size = observation_buffer_size
-        self.observation_buffer = deque(maxlen=observation_buffer_size)
-        # Initialize observation buffer
+        # Buffer for the most recent states (Short term memory)
+        self.state_buffer_size = state_buffer_size
+        self.state_buffer = deque(maxlen=state_buffer_size)
+        # Initialize state buffer
         initial_observation = self.env.get_observation()
-        self.init_observations(initial_observation)
+        self.init_state(initial_observation)
         
         # Epsilon
         self.epsilon = EPSILON_START
         
-        # Steps
-        self.step = 0
+        # Batch size - optimization
+        self.batch_size = 16
         
-    def init_observations(self, observation):
+        
+        # Steps
+        self.steps = 0
+        
+    def init_state(self, observation):
         """
-        Initialize the observation buffer
+        Initialize the state buffer
         
         Inputs:
         - observation: observation to initialize the buffer
         
         Returns:
-        - observations: np.array with the initalized buffer
+        - state: np.array with the initalized buffer
         """
-        for _ in range(self.observation_buffer_size):
+        for _ in range(self.state_buffer_size):
             self.add_observation(observation)
         
-        return np.array(self.observation_buffer)
+        return np.array(self.state_buffer)
         
     def add_observation(self, observation):
         """
-        Adds a observation to the internal observation buffer
+        Adds a observation to the internal state buffer
         
         Inputs:
         - observation: observation to append
         """
-        self.observation_buffer.append(observation)
+        self.state_buffer.append(observation)
         
-    def get_recent_observations(self):
+    def get_recent_state(self):
         """
-        Returns the most recent observations
+        Returns the most recent state
         
         Returns:
-        - observations: np.array with the most recent observations
+        - state: np.array with the most recent state
         """
-        return np.array(self.observation_buffer)
-    
-    def reshape_observations(self, observation):
-        """
-        Reshape observation to fit into PyTorch framework
+        return np.array(self.state_buffer)
         
-        Inputs:
-        - observations: np.array
-        
-        Returns:
-        - observations: np.array
-        """
-        return observation.reshape(1, # 1 sample
-                             self.observation_buffer_size, # observations
-                             self.env.get_width(), # width of observation
-                             self.env.get_height() # height of observation
-                             )
-        
-    def select_action(self, observations):
+    def select_action(self, state):
         """
         Select an random action from action space or an proposed action
         from neural network depending on epsilon
         
         Inputs:
-        - observations: np.array with observations
+        - state: np.array with the state
         
         Returns:
         action: int
         """
+        # TODO: make self.epsilon local
         # Decrease epsilon value
         self.epsilon = EPSILON_END + (EPSILON_START - EPSILON_END) * \
-                                    np.exp(-1. * self.step / EPSILON_DECAY)
+                                    np.exp(-1. * self.steps / EPSILON_DECAY)
                                     
         if self.epsilon > random():
-            print('random action')
             # Random action
             action = self.env.sample_action()
             # TODO: Check tensor types
+            # TODO: Check tensor dimensions -> probably dimension reduction possible
             action = torch.LongTensor([[action]])
         else:
-            print('dqn action')
             # Action according to neural net
-            observations = self.reshape_observations(observations)
             # Wrap tensor into variable
+            state_variable = Variable(torch.FloatTensor(state[None,:,:,:]))
             if self.use_cuda:
-                observations_variable = Variable(torch.FloatTensor(observations).cuda())
-            else:
-                observations_variable = Variable(torch.FloatTensor(observations))
-            # Evaluate network and return action with maximum of activation
-            action = self.net(observations_variable).data.cpu().max(1)[1].view(1,1)
+                state_variable = state_variable.cuda()
             
+            # Evaluate network and return action with maximum of activation
+            action = self.net(state_variable).data.cpu().max(1)[1].view(1,1)
+
         return action
     
+    def train(self):
+        """
+        
+        """
+        num_episodes = 1000
+        
+        # Loop over games to play
+        for i_episode in range(num_episodes):
+            # Reset environment
+            obs = self.env.reset()
+            state = self.init_state(obs)
+            done = False # games end indicator variable
+            total_reward = 0 # reset score
+            # Loop over one game
+            while not done:
+                self.env.game.render() # TODO: comment out => only debug
+                action = self.select_action(state)
+                
+                # TODO: Check whether frame skipping is needed
+                
+                
+                observation, reward, done, info = self.env.step(action)
+                # TODO: Check reward
+                total_reward += reward
+                
+                # Add current observation to state buffer (short term memory)
+                if not done:
+                    self.add_observation(observation)
+                    next_state = self.get_recent_state()
+                else:
+                    next_state = None
+                    
+                # Store current transition in replay memory (long term memory)
+                self.replay.push(state, action, reward, next_state)
+                
+                # Update state
+                state = next_state
+                
+                # Check if samples are enough to optimize
+                if len(self.replay) >= self.batch_size:
+                    loss, reward_sum = self.optimize()
+                
+                self.steps += 1
+                
+            print('Episode', i_episode,
+                  'loss', loss,
+                  'reward', total_reward,
+                  'replay size', len(self.replay))
+                
+    def optimize(self):
+        """
+        """
+        gamma = 0.999
+        
+        # Sample a transition
+        transition = self.replay.sample(self.batch_size)
+        
+        # Mask to indicate which states are not final (=done=game over)
+        non_final_mask = torch.ByteTensor(list(map(lambda ns: ns is not None, transition.next_state)))
+        final_mask = 1 - non_final_mask
+        
+        # Wrap tensors in variables
+        if self.use_cuda:
+            non_final_mask = non_final_mask.cuda()
+            final_mask = final_mask.cuda()
+            state_batch = Variable(torch.cat(transition.state).cuda())
+            action_batch = Variable(torch.cat(transition.action).cuda())
+            reward_batch = Variable(torch.cat(transition.reward).cuda())
+            non_final_next_state_batch = Variable(torch.cat(
+                    [ns for ns in transition.next_state if ns is not None]).cuda())
+            next_state_action_values = Variable(torch.zeros(self.batch_size).type(torch.FloatTensor).cuda())
+        else:
+            state_batch = Variable(torch.cat(transition.state))
+            action_batch = Variable(torch.cat(transition.action))
+            reward_batch = Variable(torch.cat(transition.reward))
+            non_final_next_state_batch = Variable(torch.cat(
+            [ns for ns in transition.next_state if ns is not None]))
+            next_state_action_values = Variable(torch.zeros(self.batch_size).type(torch.FloatTensor))
+        # TODO: Check shapes [BATCH_SIZE, self.action_repeat, self.env.width, self.env.height]
+        
+        # volatile==true prevents calculation of the derivative 
+        non_final_next_state_batch.volatile = True
+        
+        # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
+        # columns of actions taken
+        state_action_values = self.net(state_batch).gather(1, action_batch)
+        
+        # Compute V(s_{t+1}) for all next states.
+        next_state_action_values[non_final_mask] = self.net(non_final_next_state_batch).max(1)[0]
+        
+        # Compute the expected Q values
+        expected_state_action_values = (next_state_action_values * gamma) + reward_batch
+        # Detach unused states from computation
+        expected_state_action_values[final_mask] = expected_state_action_values[final_mask].detach()
+
+        # Compute Huber loss
+        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
+
+        # Optimize the model
+        self.optimizer.zero_grad()
+        loss.backward()
+        for param in self.net.parameters():
+            param.grad.data.clamp_(-1, 1)
+        self.optimizer.step()
+        
+        
+        reward_score = int(torch.sum(reward_batch).data.cpu().numpy()[0])
+
+        return loss.data.cpu().numpy(), reward_score
+        
+       
+       
+        
     def play(self):
         """
         """
-        done = False
+        done = False # games end indicator variable
         
         # Reset game
-        obs = self.env.reset()
-        observations = self.init_observations(obs)
+        observation = self.env.reset()
+        state = self.init_state(observation)
         
         while not done:
-            observations = self.reshape_observations(observations)
-            
             # Wrap tensor into variable
+            state_variable = Variable(torch.FloatTensor(state[None,:,:,:]))
             if self.use_cuda:
-                observations_variable = Variable(torch.FloatTensor(observations).cuda())
-            else:
-                observations_variable = Variable(torch.FloatTensor(observations))
+                state_variable = state_variable.cuda()
+
             
             # Evaluate network and return action with maximum of activation
-            action = self.net(observations_variable).data.cpu().max(1)[1].view(1,1)
+            action = self.net(state_variable).data.cpu().max(1)[1].view(1,1)
             
             # TODO: make a nice wrapper
             # Render game
@@ -189,7 +291,7 @@ class Agent(object):
             
             self.add_observation(observation)
             
-            observations = self.get_recent_observations()
+            state = self.get_recent_state()
             print('Action', action, 'reward', reward)
             
         self.env.game.close()

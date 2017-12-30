@@ -37,10 +37,10 @@ class ReplayMemory(object):
         - next_state: np.array
         """
         # Create tensors
-        state = Tensor(state)
-        reward = Tensor(reward)
+        state = Tensor(state[None,:,:,:])
+        reward = Tensor([reward])
         if next_state is not None:
-            next_state = Tensor(next_state)
+            next_state = Tensor(next_state[None,:,:,:])
         transition = Transition(state, action, reward, next_state)
         self.memory.append(transition)
 
@@ -54,8 +54,8 @@ class ReplayMemory(object):
         Returns:
         transition: Transistion sampled
         """
-        transitions = sample(self.memory, batch_size)
-        return Transition(*(zip(*transitions)))
+        transition = sample(self.memory, batch_size)
+        return Transition(*(zip(*transition)))
 
     def __len__(self):
         return len(self.memory)

@@ -17,7 +17,7 @@ class Environment(object):
         Inputs:
         - game: string to select the game
         - dimensions: tuple (h1,h2,w1,w2) with dimensions of the game (to crop borders)
-                    breakout: (32, 195, 8, 152)
+                    breakout: (32, 195, 8, 152) -> exact dimensions
         - downsampling_rate: int 
         - record: boolean to enable record option
         - seed: int to reproduce results
@@ -126,7 +126,25 @@ class Environment(object):
         observation = self.game.render(mode='rgb_array')
         observation = self.preprocess(observation)
         return observation
-
+    
+    def plot_observation(self):
+        """
+        Plots the current observation 
+        """
+        observation = self.game.render(mode='rgb_array')
+        processed_observation = self.preprocess(observation)
+        plt.figure()
+        
+        plt.subplot(1,2,1)
+        plt.title('Observation')
+        plt.imshow(observation)
+        
+        plt.subplot(1,2,2)
+        plt.title('Preprocessed observation')
+        plt.imshow(processed_observation, cmap='gray')
+        
+        plt.show()
+        
     def step(self, action: int):
         """
         Executes a step in the environment
@@ -157,7 +175,6 @@ class Environment(object):
         
         Returns:
         - actions: list of strings with the actions
-        
         """
         return self.game.env.unwrapped.get_action_meanings()
     
@@ -167,7 +184,6 @@ class Environment(object):
         
         Returns:
         - number_of_actions: int
-        
         """
         return self.game.action_space.n
 
@@ -176,7 +192,7 @@ class Environment(object):
         Returns the width of the environment
         
         Returns:
-        width: int
+        - width: int
         """
         return int(np.ceil((self.w2-self.w1)//self.downsampling_rate))
     
@@ -186,7 +202,15 @@ class Environment(object):
         Returns the height of the environment
         
         Returns:
-        height: int
+        - height: int
         """
         return int(np.ceil((self.h2-self.h1)/self.downsampling_rate))
+    
+    def get_lives(self):
+        """
+        Returns the current number of lives
         
+        Returns:
+        - lives: int
+        """
+        return self.game.unwrapped.ale.lives()
