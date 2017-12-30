@@ -9,20 +9,13 @@ import torch.nn.functional as F
 
 
 class DQN(nn.Module):
-    def __init__(self, channels_in, num_actions, input_h, input_w):
+    def __init__(self, channels_in, num_actions):
         super(DQN, self).__init__()
-        
-        # TODO: Make input more generic
-        # Padding for first layer => input 84x84
-        pad_h = 1
-        pad_w = 6
-    
         
         self.conv1 = nn.Conv2d(in_channels=channels_in,
                           out_channels=32,
                           kernel_size=8,
-                          stride=4,
-                          padding=(pad_h, pad_w))
+                          stride=4)
         self.conv2 = nn.Conv2d(in_channels=32,
                           out_channels=64,
                           kernel_size=4,

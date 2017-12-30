@@ -9,14 +9,14 @@ Created on Fri Dec 29 14:25:29 2017
 import gym
 import numpy as np
 import matplotlib.pyplot as plt
-
+from cv2 import resize
 
 class Environment(object):
-    def __init__(self, game, dimensions, downsampling_rate=2, record=False, seed=0):
+    def __init__(self, game, inner_dimensions, width=84, height=84, record=False, seed=0):
         """
         Inputs:
         - game: string to select the game
-        - dimensions: tuple (h1,h2,w1,w2) with dimensions of the game (to crop borders)
+        - inner_dimensions: tuple (h1,h2,w1,w2) with dimensions of the game (to crop borders)
                     breakout: (32, 195, 8, 152) -> exact dimensions
         - downsampling_rate: int 
         - record: boolean to enable record option
@@ -29,8 +29,11 @@ class Environment(object):
         self.game.reset()
         
         # Preprocessing parameter
-        self.h1, self.h2, self.w1, self.w2 = dimensions
-        self.downsampling_rate = downsampling_rate
+        self.h1, self.h2, self.w1, self.w2 = inner_dimensions
+        
+        # Environment parameter
+        self.width = width
+        self.height = height
         
     def play_random(self, mode='human'):
         """
@@ -91,7 +94,8 @@ class Environment(object):
         Returns:
         - image: np.array with downsampled image
         """
-        return img[::self.downsampling_rate, ::self.downsampling_rate]
+        #return img[::self.downsampling_rate, ::self.downsampling_rate]
+        return resize(img, (self.height, self.width))
     
     def preprocess(self, img):
         """
@@ -194,7 +198,7 @@ class Environment(object):
         Returns:
         - width: int
         """
-        return int(np.ceil((self.w2-self.w1)//self.downsampling_rate))
+        return self.width
     
     
     def get_height(self):
@@ -204,7 +208,7 @@ class Environment(object):
         Returns:
         - height: int
         """
-        return int(np.ceil((self.h2-self.h1)/self.downsampling_rate))
+        return self.height
     
     def get_lives(self):
         """

@@ -41,7 +41,6 @@ class Agent(object):
         - mem_size: int length of the replay memory
         - state_buffer_size: int number of recent frames used as input for neural network
         - learning_rate: float
-        - downsampling_rate: int 
         - record: boolean to enable record option
         - seed: int to reproduce results
         """
@@ -50,13 +49,11 @@ class Agent(object):
         self.use_cuda = torch.cuda.is_available()
         
         # Environment
-        self.env = Environment(game, dimensions, downsampling_rate, record, seed)
+        self.env = Environment(game, dimensions)
         
         # Neural network
         self.net = DQN(channels_in = state_buffer_size,
-                       num_actions = self.env.get_number_of_actions(),
-                       input_h = self.env.get_height(),
-                       input_w = self.env.get_width())
+                       num_actions = self.env.get_number_of_actions())
         if self.use_cuda:
             self.net.cuda()
             
@@ -80,9 +77,11 @@ class Agent(object):
         # Batch size - optimization
         self.batch_size = 16
         
-        
         # Steps
         self.steps = 0
+        
+        # Frame skips
+        #self.frame_skips = 
         
     def init_state(self, observation):
         """
@@ -166,7 +165,7 @@ class Agent(object):
             total_reward = 0 # reset score
             # Loop over one game
             while not done:
-                self.env.game.render() # TODO: comment out => only debug
+                #self.env.game.render() # TODO: comment out => only debug
                 action = self.select_action(state)
                 
                 # TODO: Check whether frame skipping is needed
@@ -196,9 +195,9 @@ class Agent(object):
                 self.steps += 1
                 
             print('Episode', i_episode,
-                  'loss', loss,
-                  'reward', total_reward,
-                  'replay size', len(self.replay))
+                  '\tloss', loss,
+                  '\treward', total_reward,
+                  '\treplay size', len(self.replay))
                 
     def optimize(self):
         """
