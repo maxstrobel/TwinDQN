@@ -33,6 +33,7 @@ class ReplayMemory(object):
 		self.memory = []
 		self.memoryTransitions = []
 		self.num_frames = 0
+		self.memory_full = False
 		self.num_transitions = 0
 		self.num_history = num_history_frames
 
@@ -40,14 +41,16 @@ class ReplayMemory(object):
 		return (self.num_frames-1)%self.capacity
 
 	def pushTransition(self,*args):
-		if len(self.memoryTransitions) < self.capacity:
+		if len(self.memoryTransitions) < self.capacity-1:
 			self.memoryTransitions.append(None)
 		self.memoryTransitions[self.num_transitions] = TransitionIdx(*args)
-		self.num_transitions = (self.num_transitions+1)% self.capacity
+		self.num_transitions = (self.num_transitions+1)% (self.capacity-1)
 
 	def pushFrame(self, frame):
 		if len(self.memory)< self.capacity:
 			self.memory.append(None)
+		else:
+			self.memory_full = True
 		self.memory[self.num_frames] = frame
 		self.num_frames = (self.num_frames +1)% self.capacity
 
@@ -56,10 +59,11 @@ class ReplayMemory(object):
 		output = []
 		for i in range(len(rnd_transitions)):
 			state = self.memory[rnd_transitions[i][0]]
-			next_state = self.memory[rnd_transitions[i][0]+1]
 			for j in range(self.num_history-1):
-				next_state = torch.cat((self.memory[(rnd_transitions[i][0]-j)%self.capacity],next_state),1)
-				state = torch.cat((self.memory[(rnd_transitions[i][0]-1-j)%self.capacity], state),1)
+				idx = rnd_transitions[i][0]-1-j
+				if not self.memory_full:
+					idx = max(0, idx)
+				state = torch.cat((self.memory[(idx)%self.capacity], state),1)
 
 			action = rnd_transitions[i][1]
 			reward = rnd_transitions[i][2]
@@ -67,8 +71,13 @@ class ReplayMemory(object):
 			if rnd_transitions[i][3]:
 				output[i] = Transition(state.cuda(),action.cuda(), None, reward.cuda())
 			else:
+				next_state = self.memory[(rnd_transitions[i][0]+1)%self.capacity]
+				for j in range(self.num_history-1):
+					idx =  rnd_transitions[i][0]-j
+					if not self.memory_full:
+						idx = max(0, idx)
+					next_state = torch.cat((self.memory[(idx)%self.capacity], next_state),1)
 				output[i] = Transition(state.cuda(),action.cuda(), next_state.cuda(), reward.cuda())
-
 		return output
 
 	def __len__(self):
@@ -76,15 +85,15 @@ class ReplayMemory(object):
 
 
 def dqn_learning(
-	num_frames = 6,
+	num_frames = 8,
 	batch_size = 64,
 	mem_size = 524288,
-	learning_rate = 0.00025,
+	learning_rate = 0.0005,
 	alpha = 0.95,
 	epsilon = 0.01,
 	start_train_after = 75000,
 	num_episodes = 100000,
-	update_params_each_k = 5000,
+	update_params_each_k = 10000,
 	optimize_each_k = 4
 ):
     #   num_frames: history of frames as input to DQN
@@ -191,7 +200,7 @@ def dqn_learning(
 	best_score = 0
 	torch.save(model.state_dict(),path_to_dir+'\modelParams\paramsStart')
 	env.reset()
-	eps_decay = 5000
+	eps_decay = 100000
 	for i in range(episodes):
 		env.reset()
         #   list of k last frames
@@ -199,8 +208,9 @@ def dqn_learning(
 		for j in range(num_frames):
 			last_k_frames.append(None)
 			last_k_frames[j] = rgb2gr(get_screen_resize(env))
-			memory.pushFrame(last_k_frames[0].cpu())
 
+		if i== 0:
+			memory.pushFrame(last_k_frames[0].cpu())
 		state = torch.cat(last_k_frames,1)
 		total_reward = 0
 		current_lives = 5
