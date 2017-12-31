@@ -10,7 +10,6 @@ import torch.optim as optim
 from torch.nn import functional as F
 from torch.autograd import Variable
 
-
 import numpy as np
 from random import random
 from collections import deque
@@ -136,8 +135,6 @@ class Agent(object):
         if self.epsilon > random():
             # Random action
             action = self.env.sample_action()
-            # TODO: Check tensor types
-            # TODO: Check tensor dimensions -> probably dimension reduction possible
             action = torch.LongTensor([[action]])
         else:
             # Action according to neural net
@@ -197,7 +194,8 @@ class Agent(object):
                     break
                     
                 # Store current transition in replay memory (long term memory)
-                self.replay.push(state, action, reward, next_state)
+                
+                self.replay.push(state, action.numpy(), reward, next_state)
                 
                 # Update state
                 state = next_state
@@ -214,9 +212,9 @@ class Agent(object):
                   '\treward', total_reward,
                   '\treplay size', len(self.replay))
             
-            avg_score += reward
-            if reward > best_score:
-                best_score = reward
+            avg_score += total_reward
+            if total_reward > best_score:
+                best_score = total_reward
                 
             if i_episode % log_avg_episodes == 0:
                 print('Episode:', i_episode,
