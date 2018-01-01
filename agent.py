@@ -368,8 +368,14 @@ class Agent(object):
         env = gym.make(game)
 
         num_actions = env.action_space.n
-        if preload_model or not train:
-            self.net.load_state_dict(torch.load(path_to_dir+'\modelParams\paramsWithTargetAfter4200'))
+        if not train:
+            preload_model = True
+            
+        if preload_model:
+            self.net.load_state_dict(torch.load(path_to_dir+'\modelParams\paramsWithTargetAfter4700'+game))
+            self.target_net.load_state_dict(torch.load(path_to_dir+'\modelParams\paramsWithTargetAfter4700'+game))
+            
+            # to fill memory first 
             start_train_after = mem_size
         #initialize optimizer
         memory = ReplayMemory2(mem_size, num_history_frames = num_frames)
@@ -443,7 +449,7 @@ class Agent(object):
         num_steps = 0
         avg_score = 0
         best_score = 0
-        torch.save(self.net.state_dict(),path_to_dir+'\modelParams\paramsStart')
+        torch.save(self.net.state_dict(),path_to_dir+'\modelParams\paramsStart'+game)
         eps_decay = 50000
         for i in range(episodes):
             env.reset()
@@ -519,5 +525,5 @@ class Agent(object):
                 print("For 50 episodes:\taverage score: ", avg_score/50, "\tbest score so far: ", best_score)
                 avg_score = 0
             if (i-200) % 500 == 0:
-                        torch.save(self.net.state_dict(),path_to_dir+'\modelParams\paramsWithTargetAfter'+str(i))
-        torch.save(self.net.state_dict(),path_to_dir+'\modelParams\paramsWithTargetFinal')
+                        torch.save(self.net.state_dict(),path_to_dir+'\modelParams\paramsWithTargetAfter'+str(i)+game)
+        torch.save(self.net.state_dict(),path_to_dir+'\modelParams\paramsWithTargetFinal'+game)
