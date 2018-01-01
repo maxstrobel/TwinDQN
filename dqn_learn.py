@@ -87,13 +87,13 @@ class ReplayMemory(object):
 
 def dqn_learning(
 	num_frames = 4,
-	batch_size = 128,
-	mem_size = 524288,
-	learning_rate = 0.00015,
+	batch_size = 64,
+	mem_size = 1048576,
+	learning_rate = 0.0001,
 	alpha = 0.95,
-	epsilon = 0.01,
-	start_train_after = 25000,
-	num_episodes = 100000,
+	epsilon = 0.0001,
+	start_train_after = 50000,
+	num_episodes = 10000,
 	update_params_each_k = 10000,
 	optimize_each_k = 4
 ):
@@ -114,7 +114,7 @@ def dqn_learning(
 		target_model.cuda()
 
     #initialize optimizer
-	opt = optim.RMSprop(model.parameters(), lr = learning_rate,alpha=alpha, eps=epsilon)
+	opt = optim.Adam(model.parameters(), lr = learning_rate)
 	memory = ReplayMemory(mem_size, num_history_frames = num_frames)
 
 	num_param_updates = 0
@@ -140,17 +140,6 @@ def dqn_learning(
 		non_final_mask = torch.ByteTensor(tuple(map(lambda s: s is not None,
                                           batch.next_state)))
 
-		#for k in range(batch_size):
-		#	if batch.next_state[k] is None:
-		#		non_final_mask[k] = 1
-		#	else:
-		#		non_final_mask[k] = 0
-
-		if batch.next_state[0] is None:
-			non_final_next_states = last_state
-		else:
-			non_final_next_states = batch.next_state[0]
-
 		non_final_next_states = Variable(torch.cat(
                     [ns for ns in batch.next_state if ns is not None]),volatile=True)
 		state_batch = Variable(torch.cat(batch.state))
@@ -166,8 +155,9 @@ def dqn_learning(
 
 		state_action_values = torch.gather(model(state_batch),1, action_batch)
 
-		next_max_values = target_model(non_final_next_states).detach().max(1)[0]
 		next_state_values = Variable(torch.zeros(batch_size).type(tType))
+        
+		next_max_values = target_model(non_final_next_states).detach().max(1)[0]
 		next_state_values[non_final_mask]= next_max_values
 
 		#next_state_values[non_final_mask] = model(non_final_next_states).max(1)[0]
@@ -178,8 +168,7 @@ def dqn_learning(
 		opt.zero_grad()
 
 		loss = expected_state_action_values - state_action_values
-		loss = loss.clamp(-1,1) * -1.0
-
+		loss = loss.clamp(-1.0,1.0) * -1.0
 		state_action_values.backward(loss.data.unsqueeze(1))
 
 		#loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
@@ -191,7 +180,7 @@ def dqn_learning(
 
 		if num_param_updates % update_params_each_k  == 0:
 			target_model.load_state_dict(model.state_dict())
-			print('param update!')
+			print('target_model update!')
 
 	episodes = num_episodes
 
@@ -199,7 +188,7 @@ def dqn_learning(
 	avg_score = 0
 	best_score = 0
 	torch.save(model.state_dict(),path_to_dir+'\modelParams\paramsStart')
-	eps_decay = 15000
+	eps_decay = 50000
 	for i in range(episodes):
 		env.reset()
 		screen = env.render(mode='rgb_array')
@@ -242,7 +231,6 @@ def dqn_learning(
 				next_state = None
 
             #   save to memory
-
 			memory.pushFrame(last_k_frames[num_frames - 1].cpu())
 			memory.pushTransition((memory.getCurrentIndex()-1)%memory.capacity, action, reward, done)
 			if num_steps % optimize_each_k==0:
@@ -263,7 +251,7 @@ def dqn_learning(
 			print("For 50 episodes:\taverage score: ", avg_score/50, "\tbest score so far: ", best_score)
 			avg_score = 0
 		if (i-200) % 500 == 0:
-            		torch.save(model.state_dict(),path_to_dir+'\modelParams\paramsAfter'+str(i))
-	torch.save(model.state_dict(),path_to_dir+'\modelParams\paramsFinal')
+            		torch.save(model.state_dict(),path_to_dir+'\modelParams\paramsWithTargetAfter'+str(i))
+	torch.save(model.state_dict(),path_to_dir+'\modelParams\paramsWithTargetFinal')
 dqn_learning()
 
