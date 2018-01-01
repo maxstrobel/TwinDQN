@@ -61,10 +61,10 @@ class ReplayMemory(object):
         actions = transition.action
         rewards = transition.reward
         next_states = transition.next_state
-        states = [FloatTensor(s.astype(float)) for s in states]
-        actions = [LongTensor(a.astype(float)) for a in actions]
+        states = [FloatTensor(s.astype(float))/255.0 for s in states]
+        actions = [LongTensor(a.astype(int).tolist()) for a in actions]
         rewards = [FloatTensor(r.astype(float)) for r in rewards]
-        next_states = [FloatTensor(ns.astype(float)) for ns in next_states]
+        next_states = [FloatTensor(ns.astype(float))/255.0 for ns in next_states]
         
         return Transition(states, actions, rewards, next_states)
 

@@ -112,6 +112,8 @@ def dqn_learning(
 	if USE_CUDA:
 		model.cuda()
 		target_model.cuda()
+        
+	#model.load_state_dict(torch.load(path_to_dir+'\modelParams\paramsWithTargetAfter4200'))
 
     #initialize optimizer
 	opt = optim.Adam(model.parameters(), lr = learning_rate)
@@ -205,15 +207,20 @@ def dqn_learning(
 
 		total_reward = 0
 		current_lives = 5
+		last_lives = 5
 		for t in count():
             # epsilon for greedy epsilon selection, with epsilon decay
 			eps = 0.01 + (0.95-0.01)*math.exp(-1.*(num_steps-start_train_after)/eps_decay)
-			action = select_action(model, state, eps)
+			action = torch.LongTensor([[1]])
+			if current_lives == last_lives:
+				action = select_action(model, state, 0)
+			else:
+				current_lives = last_lives
+                
 			num_steps +=1
 			_, reward, done, info = env.step(action[0,0])#envTest.step(action[0,0])
-			lives = info['ale.lives']
-			if current_lives != lives:
-				current_lives = lives
+			last_lives = info['ale.lives']
+            
 				#reward = -1.0
             #   clamp rewards
 			reward = torch.Tensor([max(-1.0,min(reward,1.0))])
@@ -242,7 +249,7 @@ def dqn_learning(
 
 			if done:
 				break;
-			#env.render()
+			env.render()
 		avg_score += total_reward
 		print("episode: ",(i+1),"\treward: ",total_reward, "\tnum steps: ", num_steps)
 		if total_reward > best_score:
