@@ -10,7 +10,6 @@ import torch.optim as optim
 from torch.nn import functional as F
 from torch.autograd import Variable
 
-
 import numpy as np
 from random import random
 from collections import deque
@@ -23,11 +22,17 @@ EPSILON_START = 1.0
 EPSILON_END = 0.01
 EPSILON_DECAY = 100000
 
+# if gpu is to be used
+use_cuda = torch.cuda.is_available()
+FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
+LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
+ByteTensor = torch.cuda.ByteTensor if use_cuda else torch.ByteTensor
+
 class Agent(object):
     def __init__(self,
                  game,
                  dimensions,
-                 mem_size = 8000, # == 1.8 GB memory
+                 mem_size = 100000, # one element needs around 60kB => 100k == 6 GB
                  state_buffer_size = 4,
                  learning_rate = 1e-4,
                  downsampling_rate=2,
@@ -47,7 +52,7 @@ class Agent(object):
         
         # Cuda
         self.use_cuda = torch.cuda.is_available()
-        
+
         # Environment
         self.env = Environment(game, dimensions)
         
@@ -136,16 +141,12 @@ class Agent(object):
         if self.epsilon > random():
             # Random action
             action = self.env.sample_action()
-            # TODO: Check tensor types
-            # TODO: Check tensor dimensions -> probably dimension reduction possible
-            action = torch.LongTensor([[action]])
+            action = LongTensor([[action]])
         else:
             # Action according to neural net
             # Wrap tensor into variable
-            state_variable = Variable(torch.FloatTensor(state[None,:,:,:]))
-            if self.use_cuda:
-                state_variable = state_variable.cuda()
-            
+            state_variable = Variable(FloatTensor(state[None,:,:,:]))
+
             # Evaluate network and return action with maximum of activation
             action = self.net(state_variable).data.cpu().max(1)[1].view(1,1)
 
@@ -197,7 +198,8 @@ class Agent(object):
                     break
                     
                 # Store current transition in replay memory (long term memory)
-                self.replay.push(state, action, reward, next_state)
+                
+                self.replay.push(state, action.cpu().numpy(), reward, next_state)
                 
                 # Update state
                 state = next_state
@@ -214,9 +216,9 @@ class Agent(object):
                   '\treward', total_reward,
                   '\treplay size', len(self.replay))
             
-            avg_score += reward
-            if reward > best_score:
-                best_score = reward
+            avg_score += total_reward
+            if total_reward > best_score:
+                best_score = total_reward
                 
             if i_episode % log_avg_episodes == 0:
                 print('Episode:', i_episode,
@@ -242,27 +244,16 @@ class Agent(object):
         transition = self.replay.sample(self.batch_size)
         
         # Mask to indicate which states are not final (=done=game over)
-        non_final_mask = torch.ByteTensor(list(map(lambda ns: ns is not None, transition.next_state)))
+        non_final_mask = ByteTensor(list(map(lambda ns: ns is not None, transition.next_state)))
         final_mask = 1 - non_final_mask
         
         # Wrap tensors in variables
-        if self.use_cuda:
-            non_final_mask = non_final_mask.cuda()
-            final_mask = final_mask.cuda()
-            state_batch = Variable(torch.cat(transition.state).cuda())
-            action_batch = Variable(torch.cat(transition.action).cuda())
-            reward_batch = Variable(torch.cat(transition.reward).cuda())
-            non_final_next_state_batch = Variable(torch.cat(
-                    [ns for ns in transition.next_state if ns is not None]).cuda())
-            next_state_action_values = Variable(torch.zeros(self.batch_size).type(torch.FloatTensor).cuda())
-        else:
-            state_batch = Variable(torch.cat(transition.state))
-            action_batch = Variable(torch.cat(transition.action))
-            reward_batch = Variable(torch.cat(transition.reward))
-            non_final_next_state_batch = Variable(torch.cat(
-            [ns for ns in transition.next_state if ns is not None]))
-            next_state_action_values = Variable(torch.zeros(self.batch_size).type(torch.FloatTensor))
-        # TODO: Check shapes [BATCH_SIZE, self.action_repeat, self.env.width, self.env.height]
+        state_batch = Variable(torch.cat(transition.state))
+        action_batch = Variable(torch.cat(transition.action))
+        reward_batch = Variable(torch.cat(transition.reward))
+        non_final_next_state_batch = Variable(torch.cat(
+        [ns for ns in transition.next_state if ns is not None]))
+        next_state_action_values = Variable(torch.zeros(self.batch_size).type(FloatTensor))
         
         # volatile==true prevents calculation of the derivative 
         non_final_next_state_batch.volatile = True
@@ -308,10 +299,7 @@ class Agent(object):
         
         while not done:
             # Wrap tensor into variable
-            state_variable = Variable(torch.FloatTensor(state[None,:,:,:]))
-            if self.use_cuda:
-                state_variable = state_variable.cuda()
-
+            state_variable = Variable(FloatTensor(state[None,:,:,:]))
             
             # Evaluate network and return action with maximum of activation
             action = self.net(state_variable).data.cpu().max(1)[1].view(1,1)
