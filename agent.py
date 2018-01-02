@@ -356,7 +356,7 @@ class Agent(object):
         num_frames = 4,
         batch_size = 64,
         mem_size = 1048576,
-        start_train_after = 50000,
+        start_train_after = 75000,
         num_episodes = 10000,
         update_params_each_k = 10000,
         optimize_each_k = 4,
@@ -441,8 +441,8 @@ class Agent(object):
             self.optimizer.step()
 
             if num_param_updates % update_params_each_k  == 0:
-                self.target_net.net.load_state_dict(self.net.state_dict())
-                print('target_net.net update!')
+                self.target_net.load_state_dict(self.net.state_dict())
+                print('target_net update!')
 
         episodes = num_episodes
 
