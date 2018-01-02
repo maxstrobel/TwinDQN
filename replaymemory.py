@@ -83,13 +83,7 @@ class ReplayMemory(object):
         actions = [LongTensor(a.astype(int).tolist()) for a in actions]
         rewards = [FloatTensor(r.astype(float)) for r in rewards]
         next_states = [FloatTensor(ns.astype(float))/255.0 for ns in next_states]
-        
-        # Concat tensors
-        states = torch.cat(states)
-        actions = torch.cat(actions)
-        rewards = torch.cat(rewards)
-        next_states = torch.cat(next_states)
-        
+
         return Transition(states, actions, rewards, next_states)
 
     def __len__(self):

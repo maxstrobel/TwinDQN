@@ -9,8 +9,8 @@ Created on Sat Dec 30 13:42:45 2017
 from agent import Agent
 
 def main():
-    agent = Agent('Breakout-v0', (32, 195, 8, 152), downsampling_rate=1)
-    agent.dqn_learning(game = 'Breakout-v0')
+    agent = Agent('Breakout-v0', (32, 195, 8, 152))
+    agent.train()
 
 if __name__ == '__main__':
     main()
