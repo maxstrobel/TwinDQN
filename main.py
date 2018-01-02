@@ -10,7 +10,7 @@ from agent import Agent
 
 def main():
     agent = Agent('Breakout-v0', (32, 195, 8, 152), downsampling_rate=1)
-    agent.dqn_learning(game = "SpaceInvaders-v0")
+    agent.dqn_learning(game = 'Breakout-v0')
 
 if __name__ == '__main__':
     main()
