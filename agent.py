@@ -46,6 +46,7 @@ class Agent(object):
                  dimensions,
                  mem_size = 100000, # one element needs around 30kB => 100k == 3 GB
                  state_buffer_size = 4,
+                 batch_size = 32,
                  learning_rate = 1e-4,
                  preload_model = False,
                  record=False,
@@ -102,7 +103,7 @@ class Agent(object):
         self.epsilon = EPSILON_START
 
         # Batch size - optimization
-        self.batch_size = 32
+        self.batch_size = batch_size
 
         # Steps
         self.steps = 0
@@ -199,7 +200,7 @@ class Agent(object):
         open(filename, 'w').close() # empty file
 
         # Loop over games to play
-        for i_episode in range(1, num_episodes):
+        for i_episode in range(1, num_episodes+1):
             # Reset environment
             obs = self.env.reset()
             state = self.init_state(obs)
@@ -266,10 +267,10 @@ class Agent(object):
                 avg_score = 0
 
             if i_episode % self.save_net_each_k == 0:
-                torch.save(self.net.state_dict(),path_to_dir+'./modelParams/dqn_' + str(i_episode) + '_episodes')
+                torch.save(self.net.state_dict(),path_to_dir+'/modelParams/dqn_' + str(i_episode) + '_episodes')
 
         print('Training done!')
-        torch.save(self.net.state_dict(),path_to_dir+'./modelParams/dqn_final')
+        torch.save(self.net.state_dict(),path_to_dir+'/modelParams/dqn_final')
 
     def optimize(self, net_updates):
         """
