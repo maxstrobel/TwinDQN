@@ -31,6 +31,7 @@ EPSILON_DECAY = 100000
 
 # if gpu is to be used
 use_cuda = torch.cuda.is_available()
+
 path_to_dir = os.getcwd()
 FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
@@ -356,7 +357,7 @@ class Agent(object):
         num_frames = 4,
         batch_size = 64,
         mem_size = 1048576,
-        start_train_after = 75000,
+        start_train_after = 10000,
         num_episodes = 10000,
         update_params_each_k = 10000,
         optimize_each_k = 4,
@@ -370,7 +371,7 @@ class Agent(object):
         num_actions = env.action_space.n
         if not train:
             preload_model = True
-            
+			
         if preload_model:
             self.net.load_state_dict(torch.load(path_to_dir+'\modelParams\paramsWithTargetAfter4700'+game))
             self.target_net.load_state_dict(torch.load(path_to_dir+'\modelParams\paramsWithTargetAfter4700'+game))
@@ -415,7 +416,7 @@ class Agent(object):
                 non_final_mask = non_final_mask.cuda()
                 non_final_next_states = non_final_next_states.cuda()
 
-            state_action_values = torch.gather(self.net(state_batch),1, action_batch)
+            state_action_values = torch.gather(self.net(state_batch), 1, action_batch)
 
             next_state_values = Variable(torch.zeros(batch_size).type(FloatTensor))
             
@@ -429,14 +430,14 @@ class Agent(object):
 
             self.optimizer.zero_grad()
 
-            loss = expected_state_action_values - state_action_values
-            loss = loss.clamp(-1.0,1.0) * -1.0
-            state_action_values.backward(loss.data.unsqueeze(1))
+            #loss = expected_state_action_values - state_action_values
+            #loss = loss.clamp(-1.0,1.0) * -1.0
+            #state_action_values.backward(loss.data.unsqueeze(1))
 
-            #loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
-            #loss.backward()
-            #for param in self.net.parameters():
-            #	param.grad.data.clamp_(-1,1)
+            loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
+            loss.backward()
+            for param in self.net.parameters():
+            	param.grad.data.clamp_(-1,1)
 
             self.optimizer.step()
 
@@ -449,7 +450,7 @@ class Agent(object):
         num_steps = 0
         avg_score = 0
         best_score = 0
-        torch.save(self.net.state_dict(),path_to_dir+'\modelParams\paramsStart'+game)
+        #torch.save(self.net.state_dict(),path_to_dir+'\modelParams\paramsStart'+game)
         eps_decay = 50000
         for i in range(episodes):
             env.reset()
@@ -525,5 +526,5 @@ class Agent(object):
                 print("For 50 episodes:\taverage score: ", avg_score/50, "\tbest score so far: ", best_score)
                 avg_score = 0
             if (i-200) % 500 == 0:
-                        torch.save(self.net.state_dict(),path_to_dir+'\modelParams\paramsWithTargetAfter'+str(i)+game)
-        torch.save(self.net.state_dict(),path_to_dir+'\modelParams\paramsWithTargetFinal'+game)
+                        torch.save(self.net.state_dict(),path_to_dir+'/modelParams/paramsWithTargetAfter'+str(i)+game)
+        torch.save(self.net.state_dict(),path_to_dir+'/modelParams/paramsWithTargetFinal'+game)
