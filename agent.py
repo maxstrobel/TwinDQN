@@ -383,9 +383,9 @@ class Agent(object):
             preload_model = True
 			
         if preload_model:
-            self.net.load_state_dict(torch.load(path_to_dir+'\modelParams\paramsWithTargetAfter4700'+game))
-            self.target_net.load_state_dict(torch.load(path_to_dir+'\modelParams\paramsWithTargetAfter4700'+game))
-            
+            self.net.load_state_dict(torch.load(path_to_dir+'/modelParams/paramsWithTargetAfter4700'+game,map_location=lambda storage, loc: storage))
+            self.target_net.load_state_dict(torch.load(path_to_dir+'/modelParams/paramsWithTargetAfter4700'+game,map_location=lambda storage, loc: storage))
+                        
             # to fill memory first 
             start_train_after = mem_size
         #initialize optimizer
@@ -521,6 +521,7 @@ class Agent(object):
                         optimization(state,num_param_updates)
                         num_param_updates+=1
 
+                state = next_state
                 if next_state is not None and use_cuda:
                     state = next_state.cuda()
 
