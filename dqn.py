@@ -1,8 +1,6 @@
-"""DQN"""
-"""
- Sources
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -53,16 +51,17 @@ class DQN(nn.Module):
         x = self.fc5(x)
         #print('score',x.size())
 
-        
+
         return x
-    
-    
+
+
     @property
     def is_cuda(self):
         """
         Check if model parameters are allocated on the GPU.
         """
         return next(self.parameters()).is_cuda
+
 
     def save(self, path):
         """
@@ -73,4 +72,16 @@ class DQN(nn.Module):
         - path: path string
         """
         print('Saving model... %s' % path)
-        torch.save(self, path)
+        torch.save(self.state_dict(), path)
+
+
+    def load(self, path):
+        """
+        Load model with its parameters from the given path. Conventionally the
+        path should end with "*.model".
+
+        Inputs:
+        - path: path string
+        """
+        print('Loading model... %s' % path)
+        self.load_state_dict(torch.load(path))

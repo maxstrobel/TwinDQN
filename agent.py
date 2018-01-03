@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Fri Dec 29 18:53:57 2017
 
-@author: max
-"""
 import torch
 import torch.optim as optim
 from torch.nn import functional as F
@@ -25,11 +21,6 @@ from memoryv2 import ReplayMemory2
 from collections import namedtuple
 from utils import gray2pytorch, breakout_preprocess
 
-
-EPSILON_START = 0.95
-EPSILON_END = 0.01
-EPSILON_DECAY = 50000
-
 # if gpu is to be used
 use_cuda = torch.cuda.is_available()
 
@@ -43,25 +34,33 @@ Transition = namedtuple('Transition', ('state','action','next_state','reward'))
 class Agent(object):
     def __init__(self,
                  game,
-                 dimensions,
-                 mem_size = 100000, # one element needs around 30kB => 100k == 3 GB
+                 mem_size = 200000, # one element needs around 30kB => 100k == 3 GB
                  state_buffer_size = 4,
                  batch_size = 32,
-                 learning_rate = 1e-4,
-                 preload_model = False,
+                 learning_rate = 2e-4,
+                 pretrained_model = None,
                  record=False,
                  seed=0):
         """
         Inputs:
         - game: string to select the game
-        - dimensions: tuple (h1,h2,w1,w2) with dimensions of the game (to crop borders)
-                    breakout: (32, 195, 8, 152)
         - mem_size: int length of the replay memory
         - state_buffer_size: int number of recent frames used as input for neural network
+        - batch_size: int
         - learning_rate: float
+        - pretrained_model: str path to the model
         - record: boolean to enable record option
         - seed: int to reproduce results
         """
+
+        # Namestring
+        self.game = game
+
+        # dimensions: tuple (h1,h2,w1,w2) with dimensions of the game (to crop borders)
+        if self.game == 'Breakout-v0':
+            dimensions = (32, 195, 8, 152)
+        elif self.game == 'SpaceInvaders-v0':
+            dimensions = (21, 195, 20, 141)
 
         # Cuda
         self.use_cuda = torch.cuda.is_available()
@@ -79,11 +78,12 @@ class Agent(object):
             self.net.cuda()
             self.target_net.cuda()
 
-
-        self.preload_model = preload_model
-        if preload_model:
-            # TODO: implement load functionality
-            pass
+        if pretrained_model:
+            self.net.load(pretrained_model)
+            self.target_net.load(pretrained_model)
+            self.pretrained_model = True
+        else:
+            self.pretrained_model = False
 
         # Optimizer
         self.optimizer = optim.Adam(self.net.parameters(), lr=learning_rate)
@@ -98,9 +98,6 @@ class Agent(object):
         # Initialize state buffer
         initial_observation = self.env.get_observation()
         self.init_state(initial_observation)
-
-        # Epsilon
-        self.epsilon = EPSILON_START
 
         # Batch size - optimization
         self.batch_size = batch_size
@@ -133,6 +130,7 @@ class Agent(object):
 
         return np.array(self.state_buffer)
 
+
     def add_observation(self, observation):
         """
         Adds a observation to the internal state buffer
@@ -142,6 +140,7 @@ class Agent(object):
         """
         self.state_buffer.append(observation)
 
+
     def get_recent_state(self):
         """
         Returns the most recent state
@@ -150,6 +149,7 @@ class Agent(object):
         - state: np.array with the most recent state
         """
         return np.array(self.state_buffer)
+
 
     def select_action(self, state):
         """
@@ -162,15 +162,19 @@ class Agent(object):
         Returns:
         action: int
         """
-        # TODO: make self.epsilon local
-        # Decrease epsilon value
-        if self.preload_model:
-            self.epsilon = EPSILON_END + (EPSILON_START - EPSILON_END) * \
+        # Hyperparameters
+        EPSILON_START = 1
+        EPSILON_END = 0.01
+        EPSILON_DECAY = 50000
+
+        # Decrease of epsilon value
+        if not self.pretrained_model:
+            epsilon = EPSILON_END + (EPSILON_START - EPSILON_END) * \
                                     np.exp(-1. * (self.steps-self.batch_size) / EPSILON_DECAY)
         else:
-            self.epsilon = EPSILON_END
+            epsilon = EPSILON_END
 
-        if self.epsilon > random():
+        if epsilon > random():
             # Random action
             action = self.env.sample_action()
             action = LongTensor([[action]])
@@ -184,9 +188,10 @@ class Agent(object):
 
         return action
 
+
     def train(self):
         """
-
+        Train the agent
         """
         log_avg_episodes = 100
         num_episodes = 100000
@@ -194,8 +199,7 @@ class Agent(object):
         avg_score = 0
         net_updates = 0
 
-        # TODO: timestamp for log file
-        filename = 'dqn_train.log'
+        filename = self.game + '_train.log'
 
         open(filename, 'w').close() # empty file
 
@@ -210,7 +214,6 @@ class Agent(object):
 
             # Loop over one game
             while not done:
-                #self.env.game.render() # TODO: comment out => only debug
                 action = self.select_action(state)
 
                 # skip some frames
@@ -244,7 +247,7 @@ class Agent(object):
 
                 self.steps += 1
 
-            # TODO: better loggging...
+            # TODO: better logging...
             print('Episode', i_episode,
                   '\treward', total_reward,
                   '\tnum_steps', self.steps,
@@ -267,15 +270,21 @@ class Agent(object):
                 avg_score = 0
 
             if i_episode % self.save_net_each_k == 0:
-                torch.save(self.net.state_dict(),path_to_dir+'/modelParams/dqn_' + str(i_episode) + '_episodes')
+                self.target_net.save('modelParams/' + self.game + str(i_episode) + '_episodes')
 
         print('Training done!')
-        torch.save(self.net.state_dict(),path_to_dir+'/modelParams/dqn_final')
+        self.target_net.save('modelParams/' + self.game + '.model')
+
 
     def optimize(self, net_updates):
         """
+        Optimizer function
+
+        Inputs:
+        - net_updates: int
         """
-        gamma = 0.99 # nature paper
+        # Hyperparameter
+        GAMMA = 0.99
 
         # Sample a transition
         batch = self.replay.sample(self.batch_size)
@@ -301,9 +310,7 @@ class Agent(object):
         next_state_values[non_final_mask]= next_max_values
 
         # Compute the expected Q values
-        expected_state_action_values = (next_state_values * gamma) + reward_batch
-        # Detach unused states from computation
-        #expected_state_action_values[final_mask] = expected_state_action_values[final_mask].detach()
+        expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
         # Compute Huber loss
         loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
@@ -311,9 +318,7 @@ class Agent(object):
         # Optimize the self.net
         self.optimizer.zero_grad()
 
-        # loss = expected_state_action_values - state_action_values
-        # loss = loss.clamp(-1.0,1.0) * -1.0
-        # state_action_values.backward(loss.data.unsqueeze(1))
+        # Calculate Huber loss
         loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
 
 
@@ -327,42 +332,32 @@ class Agent(object):
             print('target_net update!')
 
 
-        # reward_score = int(torch.sum(reward_batch).data.cpu().numpy()[0])
-
-        # return loss.data.cpu().numpy(), reward_score
-
-
-
-
     def play(self):
         """
+        Play a game with the current net and render it
         """
         done = False # games end indicator variable
-
+        score = 0
         # Reset game
         observation = self.env.reset()
         state = self.init_state(observation)
 
         while not done:
-            # Wrap tensor into variable
-            state_variable = Variable(FloatTensor(state[None,:,:,:]))
+            action = self.select_action(state)
 
-            # Evaluate network and return action with maximum of activation
-            action = self.net(state_variable).data.cpu().max(1)[1].view(1,1)
-
-            # TODO: make a nice wrapper
             # Render game
             self.env.game.render(mode='human')
 
             observation, reward, done, info = self.env.step(action)
-
+            score += reward
             self.add_observation(observation)
 
             state = self.get_recent_state()
-            print('Action', action, 'reward', reward)
 
+        print('Final score:', score)
         self.env.game.close()
- 
+
+
     def dqn_learning(self,
         num_frames = 4,
         batch_size = 64,

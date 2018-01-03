@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Fri Dec 29 19:50:40 2017
 
-@author: max
-"""
 import torch
 import numpy as np
 from collections import deque, namedtuple
@@ -30,20 +26,22 @@ class ReplayMemory(object):
         self.filling = 0
         self.memory_full = False
 
+
     def init_memory(self,state):
         """
         Initalize replay memory with first state
-        
+
         Inputs:
         - state: np.array
         """
         state = State(state[None,:,:,:], None, None)
         self.memory.append(state)
-        
+
+
     def push(self, action, reward, next_state):
         """
         Pushes the current state into the replay memory
-        
+
         Inputs:
         - action: int
         - reward: int
@@ -53,7 +51,7 @@ class ReplayMemory(object):
         state = self.memory[min(self.filling,self.capacity-1)].state
         state = State(state, np.uint8(action), np.int8([reward]))
         self.memory[min(self.filling,self.capacity-1)] = state
-        
+
         # Add next state add the end of the buffer without action and reward
         next_state = State(next_state[None,:,:,:], None, -1)
         self.memory.append(next_state)
@@ -62,10 +60,10 @@ class ReplayMemory(object):
     def sample(self, batch_size):
         """
         Sample random elements from memory and converts it to tensors
-        
+
         Inputs:
         - batch_size: int
-        
+
         Returns:
         batch: Transistion tensor batch
         """
@@ -74,7 +72,7 @@ class ReplayMemory(object):
         # Resample because final transition sampled
         while None in [self.memory[idx].action for idx in rand_idx]:
             rand_idx = np.random.randint(min(self.filling,self.capacity-1), size=batch_size)
-            
+
         # Get samples
         states = [self.memory[idx].state for idx in rand_idx]
         actions = [self.memory[idx].action for idx in rand_idx]
@@ -87,6 +85,7 @@ class ReplayMemory(object):
         next_states = [FloatTensor(ns.astype(float))/255.0 for ns in next_states]
 
         return Transition(states, actions, rewards, next_states)
+
 
     def __len__(self):
         return len(self.memory)
