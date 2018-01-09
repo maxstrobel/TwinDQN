@@ -62,11 +62,11 @@ class Agent(object):
         elif self.game == 'SpaceInvaders-v0':
             dimensions = (21, 195, 20, 141)
 
-        # Environment
-        self.env = Environment(game, dimensions)
-
         # Cuda
         self.use_cuda = torch.cuda.is_available()
+
+        # Environment
+        self.env = Environment(game, dimensions)
 
         # Neural network
         self.net = DQN(channels_in = state_buffer_size,
@@ -89,18 +89,6 @@ class Agent(object):
         self.optimizer = optim.Adam(self.net.parameters(), lr=learning_rate)
         # self.optimizer = optim.RMSprop(self.net.parameters(), lr = learning_rate,alpha=alpha, eps=epsilon)
 
-        # Batch size - optimization
-        self.batch_size = batch_size
-
-        # Updates for target_net
-        self.update_target_net_each_k_steps = 10000
-
-        # Save
-        self.save_net_each_k_episodes = 1000
-
-        # Frame skips
-        self.frame_skips = 4
-
         # Replay Memory (Long term memory)
         self.replay = ReplayMemory(mem_size)
 
@@ -111,8 +99,20 @@ class Agent(object):
         initial_observation = self.env.get_observation()
         self.init_state(initial_observation)
 
+        # Batch size - optimization
+        self.batch_size = batch_size
+
         # Steps
         self.steps = 0
+
+        # Updates for target_net
+        self.update_target_net_each_k = 10000
+
+        # Save
+        self.save_net_each_k = 1000
+
+        # Frame skips
+        self.frame_skips = 4 # nature paper
 
 
     def init_state(self, observation):
@@ -203,8 +203,6 @@ class Agent(object):
 
         open(filename, 'w').close() # empty file
 
-        print('Started training...')
-
         # Loop over games to play
         for i_episode in range(1, num_episodes+1):
             # Reset environment
@@ -271,7 +269,7 @@ class Agent(object):
                                   '\t\t\tbest score so far: ' + str(best_score) + '\n')
                 avg_score = 0
 
-            if i_episode % self.save_net_each_k_episodes == 0:
+            if i_episode % self.save_net_each_k == 0:
                 self.target_net.save('modelParams/' + self.game + str(i_episode) + '_episodes')
 
         print('Training done!')
@@ -329,7 +327,7 @@ class Agent(object):
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
-        if (net_updates%self.update_target_net_each_k_steps)==0 and net_updates!=0:
+        if net_updates % self.update_target_net_each_k == 0:
             self.target_net.load_state_dict(self.net.state_dict())
             print('target_net update!')
 
