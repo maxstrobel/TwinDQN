@@ -1,91 +1,65 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import torch
-import numpy as np
-from collections import deque, namedtuple
+from collections import namedtuple
+import random
 
-# if gpu is to be used
-use_cuda = torch.cuda.is_available()
-FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
-LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
+Transition = namedtuple('Transition', ('state','action','next_state','reward'))
+TransitionIdx = namedtuple('transitionIdx', ('idx', 'action', 'reward', 'done'))
 
-# State container
-State = namedtuple('Transition', ('state', 'action', 'reward'))
-# Transition container
-Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state'))
+USE_CUDA = torch.cuda.is_available()
+tType = torch.cuda.FloatTensor if USE_CUDA else torch.FloatTensor
 
 class ReplayMemory(object):
-    def __init__(self, capacity):
-        """
-        Inputs:
-        - capacity: int capacity of the memory
-        """
-        self.capacity = capacity
-        self.memory = deque(maxlen=self.capacity)
-        self.filling = 0
-        self.memory_full = False
+	def __init__(self, capacity, num_history_frames = 4):
+		self.capacity = capacity
+		self.memory = []
+		self.memoryTransitions = []
+		self.num_frames = 0
+		self.memory_full = False
+		self.num_transitions = 0
+		self.num_history = num_history_frames
 
+	def getCurrentIndex(self):
+		return (self.num_frames-1)%self.capacity
 
-    def init_memory(self,state):
-        """
-        Initalize replay memory with first state
+	def pushTransition(self,*args):
+		if len(self.memoryTransitions) < self.capacity-1:
+			self.memoryTransitions.append(None)
+		self.memoryTransitions[self.num_transitions] = TransitionIdx(*args)
+		self.num_transitions = (self.num_transitions+1)% (self.capacity-1)
 
-        Inputs:
-        - state: np.array
-        """
-        state = State(state[None,:,:,:], None, None)
-        self.memory.append(state)
+	def pushFrame(self, frame):
+		if len(self.memory)< self.capacity:
+			self.memory.append(None)
+		else:
+			self.memory_full = True
+		self.memory[self.num_frames] = frame
+		self.num_frames = (self.num_frames +1)% self.capacity
 
+	def sampleTransition(self, batch_size):
+		rnd_transitions = random.sample(self.memoryTransitions, batch_size)
+		output = []
+		for i in range(len(rnd_transitions)):
+			state = self.memory[rnd_transitions[i][0]]
+			for j in range(self.num_history-1):
+				idx = rnd_transitions[i][0]-1-j
+				if not self.memory_full:
+					idx = max(0, idx)
+				state = torch.cat((self.memory[(idx)%self.capacity], state),1)
 
-    def push(self, action, reward, next_state):
-        """
-        Pushes the current state into the replay memory
+			action = rnd_transitions[i][1]
+			reward = rnd_transitions[i][2]
+			output.append(None)
+			if rnd_transitions[i][3]:
+				output[i] = Transition(state.type(tType)/255.0, action, None, reward)
+			else:
+				next_state = self.memory[(rnd_transitions[i][0]+1)%self.capacity]
+				for j in range(self.num_history-1):
+					idx =  rnd_transitions[i][0]-j
+					if not self.memory_full:
+						idx = max(0, idx)
+					next_state = torch.cat((self.memory[(idx)%self.capacity], next_state),1)
+				output[i] = Transition(state.type(tType)/255.0, action, next_state.type(tType)/255.0, reward)
+		return Transition(*zip(* output))
 
-        Inputs:
-        - action: int
-        - reward: int
-        - next_state: np.array
-        """
-        # Update old state with action and reward
-        state = self.memory[min(self.filling,self.capacity-1)].state
-        state = State(state, np.uint8(action), np.int8([reward]))
-        self.memory[min(self.filling,self.capacity-1)] = state
-
-        # Add next state add the end of the buffer without action and reward
-        next_state = State(next_state[None,:,:,:], None, -1)
-        self.memory.append(next_state)
-        self.filling += 1
-
-    def sample(self, batch_size):
-        """
-        Sample random elements from memory and converts it to tensors
-
-        Inputs:
-        - batch_size: int
-
-        Returns:
-        batch: Transistion tensor batch
-        """
-        # Sample transition
-        rand_idx = np.random.randint(min(self.filling,self.capacity-1), size=batch_size)
-        # Resample because final transition sampled
-        while None in [self.memory[idx].action for idx in rand_idx]:
-            rand_idx = np.random.randint(min(self.filling,self.capacity-1), size=batch_size)
-
-        # Get samples
-        states = [self.memory[idx].state for idx in rand_idx]
-        actions = [self.memory[idx].action for idx in rand_idx]
-        rewards = [self.memory[idx].reward for idx in rand_idx]
-        next_states = [self.memory[idx+1].state for idx in rand_idx]
-        # Convert to tensor
-        states = [FloatTensor(s.astype(float))/255.0 for s in states]
-        actions = [LongTensor(a.astype(int).tolist()) for a in actions]
-        rewards = [FloatTensor(r.astype(float)) for r in rewards]
-        next_states = [FloatTensor(ns.astype(float))/255.0 for ns in next_states]
-
-        return Transition(states, actions, rewards, next_states)
-
-
-    def __len__(self):
-        return len(self.memory)
+	def __len__(self):
+		return len(self.memory)

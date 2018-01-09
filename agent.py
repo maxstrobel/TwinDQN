@@ -5,26 +5,18 @@ import torch
 import torch.optim as optim
 from torch.nn import functional as F
 from torch.autograd import Variable
-import gym
 
 import numpy as np
-import math
-import os
-from itertools import count
-from random import random, randrange
-from collections import deque
+from random import random
 
 from environment import Environment
 from dqn import DQN
 from replaymemory import ReplayMemory
-from memoryv2 import ReplayMemory2
 from collections import namedtuple
-from utils import breakout_preprocess
 
 # if gpu is to be used
 use_cuda = torch.cuda.is_available()
 
-path_to_dir = os.getcwd()
 FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
 ByteTensor = torch.cuda.ByteTensor if use_cuda else torch.ByteTensor
@@ -33,7 +25,7 @@ Transition = namedtuple('Transition', ('state','action','next_state','reward'))
 
 def gray2pytorch(img):
     return torch.from_numpy(img[:,:,None].transpose(2, 0, 1)).unsqueeze(0)
-    
+
 class Agent(object):
     def __init__(self,
                  game,
@@ -100,7 +92,7 @@ class Agent(object):
             self.start_train_after = 10000
         else:
             self.start_train_after = mem_size//2
-        
+
         # Optimize each k frames
         self.optimize_each_k = 4
 
@@ -115,55 +107,13 @@ class Agent(object):
 
         # Replay Memory (Long term memory)
         #self.replay = ReplayMemory(mem_size)
-        self.replay = ReplayMemory2(capacity=mem_size, num_history_frames=state_buffer_size)
+        self.replay = ReplayMemory(capacity=mem_size, num_history_frames=state_buffer_size)
 
         # Buffer for the most recent states (Short term memory)
         self.num_stored_frames = state_buffer_size
-        self.state_buffer_size = state_buffer_size
-        self.state_buffer = deque(maxlen=state_buffer_size)
-        # Initialize state buffer
-        initial_observation = self.env.get_observation()
-        self.init_state(gray2pytorch(initial_observation))
 
         # Steps
         self.steps = 0
-
-    def init_state(self, observation):
-        """
-        Initialize the state buffer
-
-        Inputs:
-        - observation: observation to initialize the buffer
-
-        Returns:
-        - state: np.array with the initalized buffer
-        """
-        for _ in range(self.state_buffer_size):
-            self.add_observation(observation)
-
-        return torch.cat(list(self.state_buffer)).type(FloatTensor)/255.0
-
-
-    def add_observation(self, observation):
-        """
-        Adds a observation to the internal state buffer
-
-        Inputs:
-        - observation: observation to append
-        """
-        self.state_buffer.append(observation)
-
-
-    def get_recent_state(self):
-        """
-        Returns the most recent state
-
-        Returns:
-        - state: np.array with the most recent state
-        """
-        last_k_frames = list(self.state_buffer)
-        print(type(last_k_frames))
-        return torch.cat(last_k_frames).type(FloatTensor)/255.0
 
 
     def select_action(self, observation):
@@ -203,203 +153,6 @@ class Agent(object):
 
         return action
 
-
-#    def train(self):
-#        """
-#        Train the agent
-#        """
-#        log_avg_episodes = 100
-#        num_episodes = 100000
-#        best_score = 0
-#        avg_score = 0
-#        net_updates = 0
-#
-#        filename = self.game + '_train.log'
-#
-#        open(filename, 'w').close() # empty file
-#
-#        print('Started training...')
-#
-#        # Loop over games to play
-#        for i_episode in range(1, num_episodes+1):
-#            # Reset environment
-#            obs = self.env.reset()
-#            state = self.init_state(gray2pytorch(obs))
-#            done = False # games end indicator variable
-#            total_reward = 0 # reset score
-#
-#            # Loop over one game
-#            while not done:
-#                action = self.select_action(state)
-#
-#                observation, reward, done, info = self.env.step(action[0,0])
-#                # Add current observation to state buffer (short term memory)
-#                self.add_observation(observation)
-#
-#                # Clamp reward
-#                reward = np.clip(reward,-1,1)
-#                total_reward += reward
-#                reward = FloatTensor([reward])
-#
-#                # Update next_state
-#                if not done:
-#                    next_state = self.get_recent_state()
-#                else:
-#                    next_state = None
-#                    break
-#
-#                # Store current transition in replay memory (long term memory)
-#                self.replay.pushFrame(gray2pytorch(observation).cpu())
-#                self.replay.pushTransition((self.replay.getCurrentIndex()-1)%self.replay.capacity, 
-#                                           action, reward, done)
-#
-#                # Update state
-#                state = next_state
-#
-#                if use_cuda:
-#                    state = state.cuda()
-#
-#                # Check if samples are enough to optimize
-#                if len(self.replay) >= self.batch_size and (self.steps%self.optimize_each_k) == 0:
-#                    self.optimize(net_updates)
-#                    net_updates += 1
-#
-#                self.steps += 1
-#
-#                # Exit frame skipping loop, if game over
-#                if done:
-#                    break
-#
-#            # TODO: better logging...
-#            print('Episode', i_episode,
-#                  '\treward', total_reward,
-#                  '\tnum_steps', self.steps,
-#                  '\treplay size', len(self.replay))
-#
-#            avg_score += total_reward
-#            if total_reward > best_score:
-#                best_score = total_reward
-#
-#            if i_episode % log_avg_episodes == 0:
-#                print('Episode:', i_episode,
-#                      'avg on last', log_avg_episodes, 'games:', avg_score/log_avg_episodes,
-#                      'best score so far:', best_score)
-#                # Logfile
-#                with open(filename, "a") as logfile:
-#                    logfile.write('Episode: '+ str(i_episode)+
-#                                  '\t\t\tavg on last ' + str(log_avg_episodes) +
-#                                  ' games: ' + str(avg_score/log_avg_episodes) +
-#                                  '\t\t\tbest score so far: ' + str(best_score) + '\n')
-#                avg_score = 0
-#
-#            if i_episode % self.save_net_each_k_episodes == 0:
-#                self.target_net.save('modelParams/' + self.game + str(i_episode) + '_episodes')
-#
-#        print('Training done!')
-#        self.target_net.save('modelParams/' + self.game + '.model')
-        
-#    def train(self):
-#        """
-#        Train the agent
-#        """
-#        log_avg_episodes = 100
-#        num_episodes = 100000
-#        best_score = 0
-#        avg_score = 0
-#        net_updates = 0
-#
-#        filename = self.game + '_train.log'
-#
-#        open(filename, 'w').close() # empty file
-#
-#        print('Started training...')
-#
-#        # Loop over games to play
-#        for i_episode in range(1, num_episodes+1):
-#            # Reset environment
-#            obs = self.env.reset()
-#
-#            # list of k last frames
-#            last_k_frames = []
-#            for j in range(self.num_stored_frames):
-#                last_k_frames.append(None)
-#                last_k_frames[j] = gray2pytorch(obs)
-#
-#            state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
-#
-#            done = False # games end indicator variable
-#            total_reward = 0 # reset score
-#
-#            # Loop over one game
-#            while not done:
-#                action = self.select_action(state)
-#
-#                observation, reward, done, info = self.env.step(action[0,0])
-#                # Add current observation to state buffer (short term memory)
-#                for j in range(self.num_stored_frames-1):
-#                    last_k_frames[j] = last_k_frames[j+1]
-#                last_k_frames[self.num_stored_frames-1] = gray2pytorch(observation)
-#
-#                # Clamp reward
-#                reward = np.clip(reward,-1,1)
-#                total_reward += reward
-#                reward = FloatTensor([reward])
-#
-#                # Update next_state
-#                if not done:
-#                    next_state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
-#                else:
-#                    next_state = None
-#                    break
-#
-#                # Store current transition in replay memory (long term memory)
-#                self.replay.pushFrame(last_k_frames[self.num_stored_frames - 1].cpu())
-#                self.replay.pushTransition((self.replay.getCurrentIndex()-1)%self.replay.capacity, action, reward, done)
-#
-#                # Update state
-#                state = next_state
-#
-#                if use_cuda:
-#                    state = state.cuda()
-#
-#                # Check if samples are enough to optimize
-#                if len(self.replay) >= self.batch_size and (self.steps%self.optimize_each_k) == 0:
-#                    self.optimize(net_updates)
-#                    net_updates += 1
-#
-#                self.steps += 1
-#
-#                # Exit frame skipping loop, if game over
-#                if done:
-#                    break
-#
-#            # TODO: better logging...
-#            print('Episode', i_episode,
-#                  '\treward', total_reward,
-#                  '\tnum_steps', self.steps,
-#                  '\treplay size', len(self.replay))
-#
-#            avg_score += total_reward
-#            if total_reward > best_score:
-#                best_score = total_reward
-#
-#            if i_episode % log_avg_episodes == 0:
-#                print('Episode:', i_episode,
-#                      'avg on last', log_avg_episodes, 'games:', avg_score/log_avg_episodes,
-#                      'best score so far:', best_score)
-#                # Logfile
-#                with open(filename, "a") as logfile:
-#                    logfile.write('Episode: '+ str(i_episode)+
-#                                  '\t\t\tavg on last ' + str(log_avg_episodes) +
-#                                  ' games: ' + str(avg_score/log_avg_episodes) +
-#                                  '\t\t\tbest score so far: ' + str(best_score) + '\n')
-#                avg_score = 0
-#
-#            if i_episode % self.save_net_each_k_episodes == 0:
-#                self.target_net.save('modelParams/' + self.game + str(i_episode) + '_episodes')
-#
-#        print('Training done!')
-#        self.target_net.save('modelParams/' + self.game + '.model')
 
     def optimize(self, net_updates):
         """
@@ -511,7 +264,7 @@ class Agent(object):
         open(filename, 'w').close() # empty file
 
         print('Started training...')
-        
+
         for i_episode in range(num_episodes):
             # reset game at the start of each episode
             screen = self.env.reset()
