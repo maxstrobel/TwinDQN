@@ -379,13 +379,14 @@ class Agent(object):
         if not train:
             preload_model = True
 			
+		#	still hardcoded so far, loading the latest network parameters
         if preload_model:
             self.net.load_state_dict(torch.load(path_to_dir+'/modelParams/paramsWithTargetAfter4700'+game,map_location=lambda storage, loc: storage))
             self.target_net.load_state_dict(torch.load(path_to_dir+'/modelParams/paramsWithTargetAfter4700'+game,map_location=lambda storage, loc: storage))
                         
             # to fill memory first 
-            start_train_after = mem_size
-        #initialize optimizer
+            start_train_after = mem_size/2
+        #initialize memory
         memory = ReplayMemory2(mem_size, num_history_frames = num_frames)
 
         num_param_updates = 0
@@ -394,8 +395,10 @@ class Agent(object):
         def select_action(dqn, observation,eps):
             rnd = random()
             if rnd < eps:
+				#	random action
                 return torch.LongTensor([[randrange(num_actions)]])
             else:
+				#	evaluate action by using network 
                 return dqn(Variable(observation, volatile=True)).type(torch.FloatTensor).data.max(1)[1].view(1,1)
 
         #   function to optimize self.net according to reinforcement_q_learning.py's optimization function
@@ -460,28 +463,33 @@ class Agent(object):
         #torch.save(self.net.state_dict(),path_to_dir+'\modelParams\paramsStart'+game)
         eps_decay = 50000
         for i in range(episodes):
+			# 	reset game at the start of each episode
             env.reset()
+			
+			#	get first frame and save it
             screen = env.render(mode='rgb_array')
-            #obsTest = envTest.reset()
-            # # list of k last frames
+            # 	list of k last frames
             last_k_frames = []
             for j in range(num_frames):
                 last_k_frames.append(None)
+				#	preprocess image(frame)
                 last_k_frames[j] = gray2pytorch(breakout_preprocess(screen))#rgb2gr(get_screen_resize(env))
             if i == 0:
                 memory.pushFrame(last_k_frames[0].cpu())
-            #last_k_frames = np.squeeze(last_k_frames, axis=1)
+			#	frame is saved as ByteTensor -> convert to gray value between 0 and 1
             state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
+			#	total reward for logging
             total_reward = 0
             current_lives = 5
             last_lives = 5
             for t in count():
-                # epsilon for greedy epsilon selection, with epsilon decay
                 action = torch.LongTensor([[1]])
                 
+				#	select action if not at the start of a new game, first at random then through greedy epsilon selection
                 if current_lives == last_lives:
                     if not preload_model:
+						#	epsilon for greedy epsilon selection, with epsilon decay
                         eps = 0.01 + (0.95-0.01)*math.exp(-1.*(num_steps-start_train_after)/eps_decay)
                         action = select_action(self.net, state, eps)
                     else:
@@ -490,10 +498,11 @@ class Agent(object):
                     current_lives = last_lives
                     
                 num_steps +=1
+				#	perform selected action on game
                 _, reward, done, info = env.step(action[0,0])#envTest.step(action[0,0])
+				#	gain information about live count
                 last_lives = info['ale.lives']
                 
-                    #reward = -1.0
                 #   clamp rewards
                 reward = torch.Tensor([max(-1.0,min(reward,1.0))])
                 total_reward += reward[0]
@@ -504,6 +513,7 @@ class Agent(object):
                     last_k_frames[j] = last_k_frames[j+1]
                 last_k_frames[num_frames-1] = gray2pytorch(breakout_preprocess(screen))#torch.from_numpy(envTest.get_observation())#rgb2gr(get_screen_resize(env))
 
+				# 	convert frames to range 0 to 1 again
                 if not done:
                     next_state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
                 else:
@@ -513,19 +523,25 @@ class Agent(object):
                 if train:
                     memory.pushFrame(last_k_frames[num_frames - 1].cpu())
                     memory.pushTransition((memory.getCurrentIndex()-1)%memory.capacity, action, reward, done)
-                    
+                    #	only optimize each kth step
                     if num_steps % optimize_each_k==0:
                         optimization(state,num_param_updates)
                         num_param_updates+=1
 
-                state = next_state
-                if next_state is not None and use_cuda:
-                    state = next_state.cuda()
+				#	set current state to next state to select next action
+                if next_state is not None:
+                    state = next_state
+					
+                if use_cuda:
+                    state = state.cuda()
 
+				#	plays episode until there are no more lives left ( == done)
                 if done:
                     break;
+				#	only render if not training for speed purposes
                 if not train:
                     env.render()
+			#	more logging
             avg_score += total_reward
             print("episode: ",(i+1),"\treward: ",total_reward, "\tnum steps: ", num_steps)
             if total_reward > best_score:
@@ -534,5 +550,6 @@ class Agent(object):
                 print("For 50 episodes:\taverage score: ", avg_score/50, "\tbest score so far: ", best_score)
                 avg_score = 0
             if (i-200) % 500 == 0:
+						#	saving model each 500th step
                         torch.save(self.net.state_dict(),path_to_dir+'/modelParams/paramsWithTargetAfter'+str(i)+game)
         torch.save(self.net.state_dict(),path_to_dir+'/modelParams/paramsWithTargetFinal'+game)
