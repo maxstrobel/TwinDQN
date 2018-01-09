@@ -19,7 +19,7 @@ from dqn import DQN
 from replaymemory import ReplayMemory
 from memoryv2 import ReplayMemory2
 from collections import namedtuple
-from utils import gray2pytorch, breakout_preprocess
+from utils import breakout_preprocess
 
 # if gpu is to be used
 use_cuda = torch.cuda.is_available()
@@ -31,6 +31,9 @@ ByteTensor = torch.cuda.ByteTensor if use_cuda else torch.ByteTensor
 
 Transition = namedtuple('Transition', ('state','action','next_state','reward'))
 
+def gray2pytorch(img):
+    return torch.from_numpy(img[:,:,None].transpose(2, 0, 1)).unsqueeze(0)
+    
 class Agent(object):
     def __init__(self,
                  game,
@@ -92,6 +95,15 @@ class Agent(object):
         # Batch size - optimization
         self.batch_size = batch_size
 
+        # Fill replay memory before training
+        if not self.pretrained_model:
+            self.start_train_after = 10000
+        else:
+            self.start_train_after = mem_size//2
+        
+        # Optimize each k frames
+        self.optimize_each_k = 4
+
         # Updates for target_net
         self.update_target_net_each_k_steps = 10000
 
@@ -102,18 +114,19 @@ class Agent(object):
         self.frame_skips = 4
 
         # Replay Memory (Long term memory)
-        self.replay = ReplayMemory(mem_size)
+        #self.replay = ReplayMemory(mem_size)
+        self.replay = ReplayMemory2(capacity=mem_size, num_history_frames=state_buffer_size)
 
         # Buffer for the most recent states (Short term memory)
+        self.num_stored_frames = state_buffer_size
         self.state_buffer_size = state_buffer_size
         self.state_buffer = deque(maxlen=state_buffer_size)
         # Initialize state buffer
         initial_observation = self.env.get_observation()
-        self.init_state(initial_observation)
+        self.init_state(gray2pytorch(initial_observation))
 
         # Steps
         self.steps = 0
-
 
     def init_state(self, observation):
         """
@@ -128,7 +141,7 @@ class Agent(object):
         for _ in range(self.state_buffer_size):
             self.add_observation(observation)
 
-        return np.array(self.state_buffer)
+        return torch.cat(list(self.state_buffer)).type(FloatTensor)/255.0
 
 
     def add_observation(self, observation):
@@ -148,16 +161,18 @@ class Agent(object):
         Returns:
         - state: np.array with the most recent state
         """
-        return np.array(self.state_buffer)
+        last_k_frames = list(self.state_buffer)
+        print(type(last_k_frames))
+        return torch.cat(last_k_frames).type(FloatTensor)/255.0
 
 
-    def select_action(self, state):
+    def select_action(self, observation):
         """
         Select an random action from action space or an proposed action
         from neural network depending on epsilon
 
         Inputs:
-        - state: np.array with the state
+        - observation: np.array with the observation
 
         Returns:
         action: int
@@ -181,7 +196,7 @@ class Agent(object):
         else:
             # Action according to neural net
             # Wrap tensor into variable
-            state_variable = Variable(FloatTensor(state[None,:,:,:].astype(float)/255.0), volatile=True)
+            state_variable = Variable(observation, volatile=True)
 
             # Evaluate network and return action with maximum of activation
             action = self.net(state_variable).data.max(1)[1].view(1,1)
@@ -189,94 +204,202 @@ class Agent(object):
         return action
 
 
-    def train(self):
-        """
-        Train the agent
-        """
-        log_avg_episodes = 100
-        num_episodes = 100000
-        best_score = 0
-        avg_score = 0
-        net_updates = 0
-
-        filename = self.game + '_train.log'
-
-        open(filename, 'w').close() # empty file
-
-        print('Started training...')
-
-        # Loop over games to play
-        for i_episode in range(1, num_episodes+1):
-            # Reset environment
-            obs = self.env.reset()
-            state = self.init_state(obs)
-            self.replay.init_memory(state)
-            done = False # games end indicator variable
-            total_reward = 0 # reset score
-
-            # Loop over one game
-            while not done:
-                action = self.select_action(state)
-
-                # skip some frames
-                for _ in range(self.frame_skips):
-                    observation, reward, done, info = self.env.step(action[0,0])
-                    # Add current observation to state buffer (short term memory)
-                    self.add_observation(observation)
-                    total_reward += reward
-
-                    # Exit frame skipping loop, if game over
-                    if done:
-                        break
-
-                # Update next_state
-                if not done:
-                    next_state = self.get_recent_state()
-                else:
-                    next_state = None
-                    break
-
-                # Store current transition in replay memory (long term memory)
-                self.replay.push(action.cpu().numpy(), reward, next_state)
-
-                # Update state
-                state = next_state
-
-                # Check if samples are enough to optimize
-                if len(self.replay) >= self.batch_size:
-                    self.optimize(net_updates)
-                    net_updates += 1
-
-                self.steps += 1
-
-            # TODO: better logging...
-            print('Episode', i_episode,
-                  '\treward', total_reward,
-                  '\tnum_steps', self.steps,
-                  '\treplay size', len(self.replay))
-
-            avg_score += total_reward
-            if total_reward > best_score:
-                best_score = total_reward
-
-            if i_episode % log_avg_episodes == 0:
-                print('Episode:', i_episode,
-                      'avg on last', log_avg_episodes, 'games:', avg_score/log_avg_episodes,
-                      'best score so far:', best_score)
-                # Logfile
-                with open(filename, "a") as logfile:
-                    logfile.write('Episode: '+ str(i_episode)+
-                                  '\t\t\tavg on last ' + str(log_avg_episodes) +
-                                  ' games: ' + str(avg_score/log_avg_episodes) +
-                                  '\t\t\tbest score so far: ' + str(best_score) + '\n')
-                avg_score = 0
-
-            if i_episode % self.save_net_each_k_episodes == 0:
-                self.target_net.save('modelParams/' + self.game + str(i_episode) + '_episodes')
-
-        print('Training done!')
-        self.target_net.save('modelParams/' + self.game + '.model')
-
+#    def train(self):
+#        """
+#        Train the agent
+#        """
+#        log_avg_episodes = 100
+#        num_episodes = 100000
+#        best_score = 0
+#        avg_score = 0
+#        net_updates = 0
+#
+#        filename = self.game + '_train.log'
+#
+#        open(filename, 'w').close() # empty file
+#
+#        print('Started training...')
+#
+#        # Loop over games to play
+#        for i_episode in range(1, num_episodes+1):
+#            # Reset environment
+#            obs = self.env.reset()
+#            state = self.init_state(gray2pytorch(obs))
+#            done = False # games end indicator variable
+#            total_reward = 0 # reset score
+#
+#            # Loop over one game
+#            while not done:
+#                action = self.select_action(state)
+#
+#                observation, reward, done, info = self.env.step(action[0,0])
+#                # Add current observation to state buffer (short term memory)
+#                self.add_observation(observation)
+#
+#                # Clamp reward
+#                reward = np.clip(reward,-1,1)
+#                total_reward += reward
+#                reward = FloatTensor([reward])
+#
+#                # Update next_state
+#                if not done:
+#                    next_state = self.get_recent_state()
+#                else:
+#                    next_state = None
+#                    break
+#
+#                # Store current transition in replay memory (long term memory)
+#                self.replay.pushFrame(gray2pytorch(observation).cpu())
+#                self.replay.pushTransition((self.replay.getCurrentIndex()-1)%self.replay.capacity, 
+#                                           action, reward, done)
+#
+#                # Update state
+#                state = next_state
+#
+#                if use_cuda:
+#                    state = state.cuda()
+#
+#                # Check if samples are enough to optimize
+#                if len(self.replay) >= self.batch_size and (self.steps%self.optimize_each_k) == 0:
+#                    self.optimize(net_updates)
+#                    net_updates += 1
+#
+#                self.steps += 1
+#
+#                # Exit frame skipping loop, if game over
+#                if done:
+#                    break
+#
+#            # TODO: better logging...
+#            print('Episode', i_episode,
+#                  '\treward', total_reward,
+#                  '\tnum_steps', self.steps,
+#                  '\treplay size', len(self.replay))
+#
+#            avg_score += total_reward
+#            if total_reward > best_score:
+#                best_score = total_reward
+#
+#            if i_episode % log_avg_episodes == 0:
+#                print('Episode:', i_episode,
+#                      'avg on last', log_avg_episodes, 'games:', avg_score/log_avg_episodes,
+#                      'best score so far:', best_score)
+#                # Logfile
+#                with open(filename, "a") as logfile:
+#                    logfile.write('Episode: '+ str(i_episode)+
+#                                  '\t\t\tavg on last ' + str(log_avg_episodes) +
+#                                  ' games: ' + str(avg_score/log_avg_episodes) +
+#                                  '\t\t\tbest score so far: ' + str(best_score) + '\n')
+#                avg_score = 0
+#
+#            if i_episode % self.save_net_each_k_episodes == 0:
+#                self.target_net.save('modelParams/' + self.game + str(i_episode) + '_episodes')
+#
+#        print('Training done!')
+#        self.target_net.save('modelParams/' + self.game + '.model')
+        
+#    def train(self):
+#        """
+#        Train the agent
+#        """
+#        log_avg_episodes = 100
+#        num_episodes = 100000
+#        best_score = 0
+#        avg_score = 0
+#        net_updates = 0
+#
+#        filename = self.game + '_train.log'
+#
+#        open(filename, 'w').close() # empty file
+#
+#        print('Started training...')
+#
+#        # Loop over games to play
+#        for i_episode in range(1, num_episodes+1):
+#            # Reset environment
+#            obs = self.env.reset()
+#
+#            # list of k last frames
+#            last_k_frames = []
+#            for j in range(self.num_stored_frames):
+#                last_k_frames.append(None)
+#                last_k_frames[j] = gray2pytorch(obs)
+#
+#            state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
+#
+#            done = False # games end indicator variable
+#            total_reward = 0 # reset score
+#
+#            # Loop over one game
+#            while not done:
+#                action = self.select_action(state)
+#
+#                observation, reward, done, info = self.env.step(action[0,0])
+#                # Add current observation to state buffer (short term memory)
+#                for j in range(self.num_stored_frames-1):
+#                    last_k_frames[j] = last_k_frames[j+1]
+#                last_k_frames[self.num_stored_frames-1] = gray2pytorch(observation)
+#
+#                # Clamp reward
+#                reward = np.clip(reward,-1,1)
+#                total_reward += reward
+#                reward = FloatTensor([reward])
+#
+#                # Update next_state
+#                if not done:
+#                    next_state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
+#                else:
+#                    next_state = None
+#                    break
+#
+#                # Store current transition in replay memory (long term memory)
+#                self.replay.pushFrame(last_k_frames[self.num_stored_frames - 1].cpu())
+#                self.replay.pushTransition((self.replay.getCurrentIndex()-1)%self.replay.capacity, action, reward, done)
+#
+#                # Update state
+#                state = next_state
+#
+#                if use_cuda:
+#                    state = state.cuda()
+#
+#                # Check if samples are enough to optimize
+#                if len(self.replay) >= self.batch_size and (self.steps%self.optimize_each_k) == 0:
+#                    self.optimize(net_updates)
+#                    net_updates += 1
+#
+#                self.steps += 1
+#
+#                # Exit frame skipping loop, if game over
+#                if done:
+#                    break
+#
+#            # TODO: better logging...
+#            print('Episode', i_episode,
+#                  '\treward', total_reward,
+#                  '\tnum_steps', self.steps,
+#                  '\treplay size', len(self.replay))
+#
+#            avg_score += total_reward
+#            if total_reward > best_score:
+#                best_score = total_reward
+#
+#            if i_episode % log_avg_episodes == 0:
+#                print('Episode:', i_episode,
+#                      'avg on last', log_avg_episodes, 'games:', avg_score/log_avg_episodes,
+#                      'best score so far:', best_score)
+#                # Logfile
+#                with open(filename, "a") as logfile:
+#                    logfile.write('Episode: '+ str(i_episode)+
+#                                  '\t\t\tavg on last ' + str(log_avg_episodes) +
+#                                  ' games: ' + str(avg_score/log_avg_episodes) +
+#                                  '\t\t\tbest score so far: ' + str(best_score) + '\n')
+#                avg_score = 0
+#
+#            if i_episode % self.save_net_each_k_episodes == 0:
+#                self.target_net.save('modelParams/' + self.game + str(i_episode) + '_episodes')
+#
+#        print('Training done!')
+#        self.target_net.save('modelParams/' + self.game + '.model')
 
     def optimize(self, net_updates):
         """
@@ -288,8 +411,12 @@ class Agent(object):
         # Hyperparameter
         GAMMA = 0.99
 
+        #   not enough memory yet
+        if len(self.replay) < self.start_train_after:
+            return
+
         # Sample a transition
-        batch = self.replay.sample(self.batch_size)
+        batch = self.replay.sampleTransition(self.batch_size)
 
         # Mask to indicate which states are not final (=done=game over)
         non_final_mask = ByteTensor(list(map(lambda ns: ns is not None, batch.next_state)))
@@ -302,6 +429,14 @@ class Agent(object):
                                               volatile=True) # volatile==true prevents calculation of the derivative
 
         next_state_values = Variable(torch.zeros(self.batch_size).type(FloatTensor), volatile=False)
+
+        if self.use_cuda:
+            state_batch = state_batch.cuda()
+            action_batch = action_batch.cuda()
+            reward_batch = reward_batch.cuda()
+            non_final_mask = non_final_mask.cuda()
+            non_final_next_states = non_final_next_states.cuda()
+            next_state_values = next_state_values.cuda()
 
         # Compute Q(s_t, a) - the self.net computes Q(s_t), then we select the
         # columns of actions taken
@@ -360,196 +495,110 @@ class Agent(object):
         self.env.game.close()
 
 
-    def dqn_learning(self,
-        num_frames = 4,
-        batch_size = 64,
-        mem_size = 1048576,
-        start_train_after = 10000,
-        num_episodes = 10000,
-        update_params_each_k = 10000,
-        optimize_each_k = 4,
-        train = True,
-        preload_model = False,
-        game = "Breakout-v0"):
-        #   num_frames: history of frames as input to DQN
-        #   batch_size: size of random samples of memory
-        env = gym.make(game)
+    def train(self):
+        """
+        Train the agent
+        """
+        num_episodes = 100000
+        net_updates = 0
 
-        num_actions = env.action_space.n
-        if not train:
-            preload_model = True
-			
-		#	still hardcoded so far, loading the latest network parameters
-        if preload_model:
-            self.net.load_state_dict(torch.load(path_to_dir+'/modelParams/paramsWithTargetAfter4700'+game,map_location=lambda storage, loc: storage))
-            self.target_net.load_state_dict(torch.load(path_to_dir+'/modelParams/paramsWithTargetAfter4700'+game,map_location=lambda storage, loc: storage))
-                        
-            # to fill memory first 
-            start_train_after = mem_size/2
-        #initialize memory
-        memory = ReplayMemory2(mem_size, num_history_frames = num_frames)
-
-        num_param_updates = 0
-
-        #   greedy_epsilon_selection of an action
-        def select_action(dqn, observation,eps):
-            rnd = random()
-            if rnd < eps:
-				#	random action
-                return torch.LongTensor([[randrange(num_actions)]])
-            else:
-				#	evaluate action by using network 
-                return dqn(Variable(observation, volatile=True)).type(torch.FloatTensor).data.max(1)[1].view(1,1)
-
-        #   function to optimize self.net according to reinforcement_q_learning.py's optimization function
-        def optimization(last_state, num_param_updates):
-            #   not enough memory yet
-            if len(memory) < start_train_after:
-                return
-            #   get random samples
-            batch = memory.sampleTransition(batch_size)
-
-            #   mask of which states are not final states(done = True from env.step)
-            non_final_mask = torch.ByteTensor(tuple(map(lambda s: s is not None,
-                                              batch.next_state)))
-
-            non_final_next_states = Variable(torch.cat(
-                        [ns for ns in batch.next_state if ns is not None]),volatile=True)
-            state_batch = Variable(torch.cat(batch.state))
-            action_batch = Variable(torch.cat(batch.action))
-            reward_batch = Variable(torch.cat(batch.reward))
-
-            if use_cuda:
-                state_batch = state_batch.cuda()
-                action_batch = action_batch.cuda()
-                reward_batch = reward_batch.cuda()
-                non_final_mask = non_final_mask.cuda()
-                non_final_next_states = non_final_next_states.cuda()
-
-            state_action_values = torch.gather(self.net(state_batch), 1, action_batch)
-
-            next_state_values = Variable(torch.zeros(batch_size).type(FloatTensor))
-            
-            next_max_values = self.target_net(non_final_next_states).detach().max(1)[0]
-            next_state_values[non_final_mask]= next_max_values
-
-            #next_state_values[non_final_mask] = self.net(non_final_next_states).max(1)[0]
-
-            next_state_values.volatile = False
-            expected_state_action_values = (next_state_values*0.99) + reward_batch
-
-            self.optimizer.zero_grad()
-
-            #loss = expected_state_action_values - state_action_values
-            #loss = loss.clamp(-1.0,1.0) * -1.0
-            #state_action_values.backward(loss.data.unsqueeze(1))
-
-            loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
-            loss.backward()
-            for param in self.net.parameters():
-            	param.grad.data.clamp_(-1,1)
-
-            self.optimizer.step()
-
-            if num_param_updates % update_params_each_k  == 0:
-                self.target_net.load_state_dict(self.net.state_dict())
-                print('target_net update!')
-
-        episodes = num_episodes
-
-        num_steps = 0
-        avg_score = 0
+        # Logging
+        log_avg_episodes = 100
         best_score = 0
-        #torch.save(self.net.state_dict(),path_to_dir+'\modelParams\paramsStart'+game)
-        eps_decay = 50000
-        for i in range(episodes):
-			# 	reset game at the start of each episode
-            env.reset()
-			
-			#	get first frame and save it
-            screen = env.render(mode='rgb_array')
-            # 	list of k last frames
+        avg_score = 0
+        filename = self.game + '_train.log'
+
+        open(filename, 'w').close() # empty file
+
+        print('Started training...')
+        
+        for i_episode in range(num_episodes):
+            # reset game at the start of each episode
+            screen = self.env.reset()
+
+            # list of k last frames
             last_k_frames = []
-            for j in range(num_frames):
+            for j in range(self.num_stored_frames):
                 last_k_frames.append(None)
-				#	preprocess image(frame)
-                last_k_frames[j] = gray2pytorch(breakout_preprocess(screen))#rgb2gr(get_screen_resize(env))
-            if i == 0:
-                memory.pushFrame(last_k_frames[0].cpu())
-			#	frame is saved as ByteTensor -> convert to gray value between 0 and 1
+                last_k_frames[j] = gray2pytorch(screen)
+
+            if i_episode == 0:
+                self.replay.pushFrame(last_k_frames[0].cpu())
+
+            # frame is saved as ByteTensor -> convert to gray value between 0 and 1
             state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
-			#	total reward for logging
-            total_reward = 0
-            current_lives = 5
-            last_lives = 5
-            for t in count():
-                action = torch.LongTensor([[1]])
-                
-				#	select action if not at the start of a new game, first at random then through greedy epsilon selection
-                if current_lives == last_lives:
-                    if not preload_model:
-						#	epsilon for greedy epsilon selection, with epsilon decay
-                        eps = 0.01 + (0.95-0.01)*math.exp(-1.*(num_steps-start_train_after)/eps_decay)
-                        action = select_action(self.net, state, eps)
-                    else:
-                        action = select_action(self.net, state, 0.01)                    
-                else:
-                    current_lives = last_lives
-                    
-                num_steps +=1
-				#	perform selected action on game
-                _, reward, done, info = env.step(action[0,0])#envTest.step(action[0,0])
-				#	gain information about live count
-                last_lives = info['ale.lives']
-                
+            done = False # games end indicator variable
+            total_reward = 0 # reset score
+
+            # Loop over one game
+            while not done:
+                self.steps +=1
+
+                action = self.select_action(state)
+
+                # perform selected action on game
+                screen, reward, done, info = self.env.step(action[0,0])#envTest.step(action[0,0])
+
                 #   clamp rewards
-                reward = torch.Tensor([max(-1.0,min(reward,1.0))])
+                reward = torch.Tensor([np.clip(reward,-1,1)])
                 total_reward += reward[0]
 
                 #   save latest frame, discard oldest
-                screen = env.render(mode='rgb_array')
-                for j in range(num_frames-1):
+                for j in range(self.num_stored_frames-1):
                     last_k_frames[j] = last_k_frames[j+1]
-                last_k_frames[num_frames-1] = gray2pytorch(breakout_preprocess(screen))#torch.from_numpy(envTest.get_observation())#rgb2gr(get_screen_resize(env))
+                last_k_frames[self.num_stored_frames-1] = gray2pytorch(screen)
 
-				# 	convert frames to range 0 to 1 again
+                # convert frames to range 0 to 1 again
                 if not done:
                     next_state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
                 else:
                     next_state = None
 
-                #   save to memory
-                if train:
-                    memory.pushFrame(last_k_frames[num_frames - 1].cpu())
-                    memory.pushTransition((memory.getCurrentIndex()-1)%memory.capacity, action, reward, done)
-                    #	only optimize each kth step
-                    if num_steps % optimize_each_k==0:
-                        optimization(state,num_param_updates)
-                        num_param_updates+=1
+                # Store transition
+                self.replay.pushFrame(last_k_frames[self.num_stored_frames - 1].cpu())
+                self.replay.pushTransition((self.replay.getCurrentIndex()-1)%self.replay.capacity, action, reward, done)
 
-				#	set current state to next state to select next action
+                #	only optimize each kth step
+                if self.steps%self.optimize_each_k == 0:
+                    self.optimize(net_updates)
+                    net_updates += 1
+
+                # set current state to next state to select next action
                 if next_state is not None:
                     state = next_state
-					
-                if use_cuda:
+
+                if self.use_cuda:
                     state = state.cuda()
 
-				#	plays episode until there are no more lives left ( == done)
+                # plays episode until there are no more lives left ( == done)
                 if done:
                     break;
-				#	only render if not training for speed purposes
-                if not train:
-                    env.render()
-			#	more logging
+
+            # TODO: better logging...
+            print('Episode', i_episode,
+                  '\treward', total_reward,
+                  '\tnum_steps', self.steps,
+                  '\treplay size', len(self.replay))
+
             avg_score += total_reward
-            print("episode: ",(i+1),"\treward: ",total_reward, "\tnum steps: ", num_steps)
             if total_reward > best_score:
                 best_score = total_reward
-            if (i-49) % 50 == 0:
-                print("For 50 episodes:\taverage score: ", avg_score/50, "\tbest score so far: ", best_score)
+
+            if i_episode % log_avg_episodes == 0:
+                print('Episode:', i_episode,
+                      'avg on last', log_avg_episodes, 'games:', avg_score/log_avg_episodes,
+                      'best score so far:', best_score)
+                # Logfile
+                with open(filename, "a") as logfile:
+                    logfile.write('Episode: '+ str(i_episode)+
+                                  '\t\t\tavg on last ' + str(log_avg_episodes) +
+                                  ' games: ' + str(avg_score/log_avg_episodes) +
+                                  '\t\t\tbest score so far: ' + str(best_score) + '\n')
                 avg_score = 0
-            if (i-200) % 500 == 0:
-						#	saving model each 500th step
-                        torch.save(self.net.state_dict(),path_to_dir+'/modelParams/paramsWithTargetAfter'+str(i)+game)
-        torch.save(self.net.state_dict(),path_to_dir+'/modelParams/paramsWithTargetFinal'+game)
+
+            if i_episode % self.save_net_each_k_episodes == 0:
+                self.target_net.save('modelParams/' + self.game + '-' + str(i_episode) + '_episodes')
+
+        print('Training done!')
+        self.target_net.save('modelParams/' + self.game + '.model')
