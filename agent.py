@@ -203,7 +203,7 @@ class Agent(object):
         expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
         # Compute Huber loss
-        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
+        #loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
 
         bellman_error = expected_state_action_values - state_action_values
             # clip the bellman error between [-1 , 1]
