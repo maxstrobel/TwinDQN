@@ -29,7 +29,7 @@ def gray2pytorch(img):
 class Agent(object):
     def __init__(self,
                  game,
-                 mem_size = 200000, # one element needs around 30kB => 100k == 3 GB
+                 mem_size = 1048576, # one element needs around 30kB => 100k == 3 GB
                  state_buffer_size = 4,
                  batch_size = 32,
                  learning_rate = 2e-4,
@@ -201,9 +201,6 @@ class Agent(object):
 
         # Compute the expected Q values
         expected_state_action_values = (next_state_values * GAMMA) + reward_batch
-
-        # Compute Huber loss
-        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
 
         # Optimize the self.net
         self.optimizer.zero_grad()
