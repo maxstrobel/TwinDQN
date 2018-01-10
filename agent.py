@@ -8,11 +8,11 @@ from torch.autograd import Variable
 
 import numpy as np
 from random import random
+from collections import namedtuple
 
 from environment import Environment
 from dqn import DQN
 from replaymemory import ReplayMemory
-from collections import namedtuple
 
 # if gpu is to be used
 use_cuda = torch.cuda.is_available()
@@ -29,7 +29,7 @@ def gray2pytorch(img):
 class Agent(object):
     def __init__(self,
                  game,
-                 mem_size = 1024*512, # one element needs around 30kB => 100k == 3 GB
+                 mem_size = 1024*512,
                  state_buffer_size = 4,
                  batch_size = 64,
                  learning_rate = 1e-4,
@@ -84,30 +84,18 @@ class Agent(object):
         self.optimizer = optim.Adam(self.net.parameters(), lr=learning_rate)
         # self.optimizer = optim.RMSprop(self.net.parameters(), lr = learning_rate,alpha=alpha, eps=epsilon)
 
-        # Batch size - optimization
         self.batch_size = batch_size
+        self.optimize_each_k = 4
+        self.update_target_net_each_k_steps = 10000
+
+        # Replay Memory (Long term memory)
+        self.replay = ReplayMemory(capacity=mem_size, num_history_frames=state_buffer_size)
 
         # Fill replay memory before training
         if not self.pretrained_model:
-            self.start_train_after = 50000
+            self.start_train_after = 1000
         else:
             self.start_train_after = mem_size//2
-
-        # Optimize each k frames
-        self.optimize_each_k = 4
-
-        # Updates for target_net
-        self.update_target_net_each_k_steps = 10000
-
-        # Save
-        self.save_net_each_k_episodes = 500
-
-        # Frame skips
-        self.frame_skips = 4
-
-        # Replay Memory (Long term memory)
-        #self.replay = ReplayMemory(mem_size)
-        self.replay = ReplayMemory(capacity=mem_size, num_history_frames=state_buffer_size)
 
         # Buffer for the most recent states (Short term memory)
         self.num_stored_frames = state_buffer_size
@@ -115,6 +103,8 @@ class Agent(object):
         # Steps
         self.steps = 0
 
+        # Save net
+        self.save_net_each_k_episodes = 1000
 
     def select_action(self, observation):
         """
