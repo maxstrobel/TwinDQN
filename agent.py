@@ -29,10 +29,10 @@ def gray2pytorch(img):
 class Agent(object):
     def __init__(self,
                  game,
-                 mem_size = 200000, # one element needs around 30kB => 100k == 3 GB
+                 mem_size = 1024*512, # one element needs around 30kB => 100k == 3 GB
                  state_buffer_size = 4,
-                 batch_size = 32,
-                 learning_rate = 2e-4,
+                 batch_size = 64,
+                 learning_rate = 1e-4,
                  pretrained_model = None,
                  record=False,
                  seed=0):
@@ -89,7 +89,7 @@ class Agent(object):
 
         # Fill replay memory before training
         if not self.pretrained_model:
-            self.start_train_after = 10000
+            self.start_train_after = 50000
         else:
             self.start_train_after = mem_size//2
 
@@ -100,7 +100,7 @@ class Agent(object):
         self.update_target_net_each_k_steps = 10000
 
         # Save
-        self.save_net_each_k_episodes = 1000
+        self.save_net_each_k_episodes = 500
 
         # Frame skips
         self.frame_skips = 4
@@ -128,9 +128,9 @@ class Agent(object):
         action: int
         """
         # Hyperparameters
-        EPSILON_START = 1
+        EPSILON_START = 0.9
         EPSILON_END = 0.01
-        EPSILON_DECAY = 50000
+        EPSILON_DECAY = 75000
 
         # Decrease of epsilon value
         if not self.pretrained_model:
@@ -205,16 +205,20 @@ class Agent(object):
         # Compute Huber loss
         loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
 
-        # Optimize the self.net
+        bellman_error = expected_state_action_values - state_action_values
+            # clip the bellman error between [-1 , 1]
+        clipped_bellman_error = bellman_error.clamp(-1, 1)
+            # Note: clipped_bellman_delta * -1 will be right gradient
+        d_error = clipped_bellman_error * -1.0
+            # Clear previous gradients before backward pass
         self.optimizer.zero_grad()
+            # run backward pass
+        state_action_values.backward(d_error.data.unsqueeze(1))
 
-        # Calculate Huber loss
-        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
 
-
-        loss.backward()
-        for param in self.net.parameters():
-            param.grad.data.clamp_(-1, 1)
+        #loss.backward()
+        #for param in self.net.parameters():
+        #    param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
         if (net_updates%self.update_target_net_each_k_steps)==0 and net_updates!=0:
