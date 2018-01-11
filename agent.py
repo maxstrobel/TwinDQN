@@ -29,7 +29,7 @@ def gray2pytorch(img):
 class Agent(object):
     def __init__(self,
                  game,
-                 mem_size = 1024*512,
+                 mem_size = 1024*1024,
                  state_buffer_size = 4,
                  batch_size = 64,
                  learning_rate = 1e-4,
@@ -104,7 +104,7 @@ class Agent(object):
         self.steps = 0
 
         # Save net
-        self.save_net_each_k_episodes = 10
+        self.save_net_each_k_episodes = 500
 
     def select_action(self, observation):
         """
@@ -260,7 +260,7 @@ class Agent(object):
         net_updates = 0
 
         # Logging
-        log_avg_episodes = 100
+        log_avg_episodes = 50
         best_score = 0
         best_score_clamped = 0
         avg_score = 0
@@ -350,7 +350,7 @@ class Agent(object):
             if total_reward > best_score:
                 best_score = total_reward
 
-            if i_episode % log_avg_episodes == 0:
+            if i_episode % log_avg_episodes == 0 and i_episode!=0:
                 avg_score_clamped /= log_avg_episodes
                 avg_score /= log_avg_episodes
                 
