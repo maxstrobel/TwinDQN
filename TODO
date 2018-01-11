@@ -1,0 +1,12 @@
+Jeder auf einem eigenen neuen Branch!
+
+Martin:
+  - DQN Architecture merged input images (Breakout + SpaceInvaders; input dimension 168x84x4)
+Emmanual:
+  - DQN Architecture stacked input images (Breakout / SpaceInvaders; input dimension 84x84x8)
+Max W:
+  - DQN Architecture 2 conv -> 1 FC (Breakout & Spaceinvaders; 2x input dimension 84x84x4)
+  - check other games: BeamRider, Phoenix, Skiing, Assault
+Max S:
+  - Optimizing hyperparameter (learning rate, replay size, batch size)
+  - Visualizing (weights, loss, reward, games) 
