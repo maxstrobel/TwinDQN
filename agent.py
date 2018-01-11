@@ -150,6 +150,9 @@ class Agent(object):
 
         Inputs:
         - net_updates: int
+
+        Returns:
+        - loss: float
         """
         # Hyperparameter
         GAMMA = 0.99
@@ -203,9 +206,11 @@ class Agent(object):
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
-        if (net_updates%self.update_target_net_each_k_steps)==0 and net_updates!=0:
+        if net_updates%self.update_target_net_each_k_steps==0:
             self.target_net.load_state_dict(self.net.state_dict())
             print('target_net update!')
+
+        return loss.data.cpu().numpy()[0]
 
 
     def play(self):
@@ -215,8 +220,16 @@ class Agent(object):
         done = False # games end indicator variable
         score = 0
         # Reset game
-        observation = self.env.reset()
-        state = self.init_state(observation)
+        screen = self.env.reset()
+
+        # list of k last frames
+        last_k_frames = []
+        for j in range(self.num_stored_frames):
+            last_k_frames.append(None)
+            last_k_frames[j] = gray2pytorch(screen)
+
+        # frame is saved as ByteTensor -> convert to gray value between 0 and 1
+        state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
         while not done:
             action = self.select_action(state)
@@ -224,11 +237,16 @@ class Agent(object):
             # Render game
             self.env.game.render(mode='human')
 
-            observation, reward, done, info = self.env.step(action)
+            screen, reward, done, info = self.env.step(action)
             score += reward
-            self.add_observation(observation)
 
-            state = self.get_recent_state()
+            #   save latest frame, discard oldest
+            for j in range(self.num_stored_frames-1):
+                last_k_frames[j] = last_k_frames[j+1]
+            last_k_frames[self.num_stored_frames-1] = gray2pytorch(screen)
+
+            # convert frames to range 0 to 1 again
+            state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
         print('Final score:', score)
         self.env.game.close()
@@ -244,7 +262,9 @@ class Agent(object):
         # Logging
         log_avg_episodes = 100
         best_score = 0
+        best_score_clamped = 0
         avg_score = 0
+        avg_score_clamped = 0
         filename = self.game + '_train.log'
 
         open(filename, 'w').close() # empty file
@@ -269,6 +289,7 @@ class Agent(object):
 
             done = False # games end indicator variable
             total_reward = 0 # reset score
+            total_reward_clamped = 0
 
             # Loop over one game
             while not done:
@@ -278,10 +299,11 @@ class Agent(object):
 
                 # perform selected action on game
                 screen, reward, done, info = self.env.step(action[0,0])#envTest.step(action[0,0])
+                total_reward += reward
 
                 #   clamp rewards
                 reward = torch.Tensor([np.clip(reward,-1,1)])
-                total_reward += reward[0]
+                total_reward_clamped += reward[0]
 
                 #   save latest frame, discard oldest
                 for j in range(self.num_stored_frames-1):
@@ -300,7 +322,7 @@ class Agent(object):
 
                 #	only optimize each kth step
                 if self.steps%self.optimize_each_k == 0:
-                    self.optimize(net_updates)
+                    loss = self.optimize(net_updates)
                     net_updates += 1
 
                 # set current state to next state to select next action
@@ -314,26 +336,38 @@ class Agent(object):
                 if done:
                     break;
 
-            # TODO: better logging...
-            print('Episode', i_episode,
-                  '\treward', total_reward,
-                  '\tnum_steps', self.steps,
-                  '\treplay size', len(self.replay))
+            print('Episode:', i_episode,
+                  '\tnum_steps:', self.steps,
+                  '\treward: (', total_reward_clamped, '/', total_reward, ')',
+                  '\tloss:', loss,
+                  '\tbest score so far: (', best_score_clamped, '/', best_score, ')',
+                  '\treplay size:', len(self.replay))
 
+            avg_score_clamped += total_reward_clamped
             avg_score += total_reward
+            if total_reward_clamped > best_score_clamped:
+                best_score_clamped = total_reward_clamped
             if total_reward > best_score:
                 best_score = total_reward
 
             if i_episode % log_avg_episodes == 0:
-                print('Episode:', i_episode,
-                      'avg on last', log_avg_episodes, 'games:', avg_score/log_avg_episodes,
-                      'best score so far:', best_score)
+                avg_score_clamped /= log_avg_episodes
+                avg_score /= log_avg_episodes
+                
+                print('Logging to file: \n',
+                      'Episode: ', i_episode,
+                      '\tsteps: ', self.steps,
+                      '\t\tavg on last ', log_avg_episodes,
+                      ' games: (', avg_score_clamped, '/',avg_score, ')',
+                      '\tbest score so far: (', best_score_clamped, '/', best_score, ')')
                 # Logfile
                 with open(filename, "a") as logfile:
-                    logfile.write('Episode: '+ str(i_episode)+
-                                  '\t\t\tavg on last ' + str(log_avg_episodes) +
-                                  ' games: ' + str(avg_score/log_avg_episodes) +
-                                  '\t\t\tbest score so far: ' + str(best_score) + '\n')
+                    logfile.write('Episode: '+ str(i_episode) +
+                                  '\tsteps: ' + str(self.steps) +
+                                  '\t\tavg on last ' + str(log_avg_episodes) +
+                                  ' games: (' + str(avg_score_clamped) + '/' + str(avg_score) + ')' +
+                                  '\tbest score so far: (' + str(best_score_clamped) + '/' + str(best_score) + ')\n')
+                avg_score_clamped = 0
                 avg_score = 0
 
             if i_episode % self.save_net_each_k_episodes == 0:
