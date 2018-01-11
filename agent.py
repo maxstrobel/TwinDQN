@@ -93,7 +93,7 @@ class Agent(object):
 
         # Fill replay memory before training
         if not self.pretrained_model:
-            self.start_train_after = 1000
+            self.start_train_after = 20000
         else:
             self.start_train_after = mem_size//2
 
@@ -104,7 +104,7 @@ class Agent(object):
         self.steps = 0
 
         # Save net
-        self.save_net_each_k_episodes = 1000
+        self.save_net_each_k_episodes = 10
 
     def select_action(self, observation):
         """
@@ -371,7 +371,9 @@ class Agent(object):
                 avg_score = 0
 
             if i_episode % self.save_net_each_k_episodes == 0:
-                self.target_net.save('modelParams/' + self.game + '-' + str(i_episode) + '_episodes')
+                with open(filename, "a") as logfile:
+                    logfile.write('Saved model at episode ' + str(i_episode) + '...\n')
+                self.target_net.save('modelParams/' + self.game + '-' + str(i_episode) + '_episodes.model')
 
         print('Training done!')
         self.target_net.save('modelParams/' + self.game + '.model')
