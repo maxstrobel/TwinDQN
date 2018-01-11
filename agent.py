@@ -193,22 +193,14 @@ class Agent(object):
         expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
         # Compute Huber loss
-        #loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
+        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
 
-        bellman_error = expected_state_action_values - state_action_values
-            # clip the bellman error between [-1 , 1]
-        clipped_bellman_error = bellman_error.clamp(-1, 1)
-            # Note: clipped_bellman_delta * -1 will be right gradient
-        d_error = clipped_bellman_error * -1.0
-            # Clear previous gradients before backward pass
         self.optimizer.zero_grad()
-            # run backward pass
-        state_action_values.backward(d_error.data.unsqueeze(1))
 
 
-        #loss.backward()
-        #for param in self.net.parameters():
-        #    param.grad.data.clamp_(-1, 1)
+        loss.backward()
+        for param in self.net.parameters():
+            param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
         if (net_updates%self.update_target_net_each_k_steps)==0 and net_updates!=0:
