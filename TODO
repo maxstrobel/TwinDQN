@@ -10,3 +10,8 @@ Max W:
 Max S:
   - Optimizing hyperparameter (learning rate, replay size, batch size)
   - Visualizing (weights, loss, reward, games) 
+  
+  
+Unassigned:
+- check: save model/update target @ best score
+- check: neg rewards
