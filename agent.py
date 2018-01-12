@@ -56,10 +56,17 @@ class Agent(object):
             dimensions = (32, 195, 8, 152)
         elif self.game == 'SpaceInvaders-v0':
             dimensions = (21, 195, 20, 141)
+        elif self.game == 'Assault-v0':
+            dimensions = (50, 240, 5, 155)
+        elif self.game == 'Phoenix-v0':
+            dimensions = (23, 183, 0, 160)
+        elif self.game == 'Skiing-v0':
+            dimensions = (55, 202, 8, 152)
+        elif self.game == 'Enduro-v0':
+            dimensions = (50, 154, 8, 160)
 
         # Environment
         self.env = Environment(game, dimensions)
-
         # Cuda
         self.use_cuda = torch.cuda.is_available()
 
@@ -82,7 +89,7 @@ class Agent(object):
 
         # Optimizer
         self.optimizer = optim.Adam(self.net.parameters(), lr=learning_rate)
-        # self.optimizer = optim.RMSprop(self.net.parameters(), lr = learning_rate,alpha=alpha, eps=epsilon)
+        #self.optimizer = optim.RMSprop(self.net.parameters(), lr = 0.00025,alpha=0.95, eps=0.01)
 
         self.batch_size = batch_size
         self.optimize_each_k = 4
@@ -93,7 +100,7 @@ class Agent(object):
 
         # Fill replay memory before training
         if not self.pretrained_model:
-            self.start_train_after = 20000
+            self.start_train_after = 25000
         else:
             self.start_train_after = mem_size//2
 
@@ -331,7 +338,7 @@ class Agent(object):
 
                 if self.use_cuda:
                     state = state.cuda()
-
+                
                 # plays episode until there are no more lives left ( == done)
                 if done:
                     break;
