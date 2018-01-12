@@ -64,9 +64,12 @@ class Agent(object):
             dimensions = (55, 202, 8, 152)
         elif self.game == 'Enduro-v0':
             dimensions = (50, 154, 8, 160)
+        elif self.game == 'BeamRider-v0':
+            dimensions = (32, 180, 9, 159)
 
         # Environment
         self.env = Environment(game, dimensions)
+
         # Cuda
         self.use_cuda = torch.cuda.is_available()
 
