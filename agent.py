@@ -9,6 +9,9 @@ from torch.autograd import Variable
 import numpy as np
 from random import random
 from collections import namedtuple
+from datetime import datetime
+import pickle
+import os
 
 from environment import Environment
 from dqn import DQN
@@ -34,8 +37,7 @@ class Agent(object):
                  batch_size = 64,
                  learning_rate = 1e-5,
                  pretrained_model = None,
-                 record=False,
-                 seed=0):
+                 record = False):
         """
         Inputs:
         - game: string to select the game
@@ -45,7 +47,6 @@ class Agent(object):
         - learning_rate: float
         - pretrained_model: str path to the model
         - record: boolean to enable record option
-        - seed: int to reproduce results
         """
 
         # Namestring
@@ -91,6 +92,7 @@ class Agent(object):
             self.pretrained_model = False
 
         # Optimizer
+        self.learning_rate = learning_rate
         self.optimizer = optim.Adam(self.net.parameters(), lr=learning_rate)
         #self.optimizer = optim.RMSprop(self.net.parameters(), lr = 0.00025,alpha=0.95, eps=0.01)
 
@@ -163,6 +165,8 @@ class Agent(object):
 
         Returns:
         - loss: float
+        - q_value: float
+        - exp_q_value: float
         """
         # Hyperparameter
         GAMMA = 0.99
@@ -270,14 +274,33 @@ class Agent(object):
         net_updates = 0
 
         # Logging
+        sub_dir = self.game + '_' + datetime.now().strftime('%Y%m%d_%H%M%S') + '/'
+        os.makedirs(sub_dir)
+        logfile = sub_dir + self.game + '_train.log'
+        loss_file = sub_dir + 'loss.pickle'
+        reward_file = sub_dir + 'reward.pickle'
+        reward_clamped_file = sub_dir + 'reward_clamped.pickle'
         log_avg_episodes = 50
+
         best_score = 0
         best_score_clamped = 0
         avg_score = 0
         avg_score_clamped = 0
-        filename = self.game + '_train.log'
+        loss_history = []
+        reward_history = []
+        reward_clamped_history = []
 
-        open(filename, 'w').close() # empty file
+        # Initialize logfile with header
+        with open(logfile, 'w') as fp:
+            fp.write(datetime.now().strftime('%Y%m%d_%H%M%S') + '\n' +
+                     'Trained game:    ' + str(self.game) + '\n' +
+                     'Learning rate:    ' + str(self.learning_rate) + '\n' +
+                     'Batch size:    ' + str(self.batch_size) + '\n' +
+                     'Pretrained:    ' + str(self.pretrained_model) + '\n' +
+                     'Started training after k frames:    ' + str(self.start_train_after) + '\n' +
+                     'Optimized after k frames:    ' + str(self.optimize_each_k) + '\n' +
+                     'Target net update after k frame:    ' + str(self.update_target_net_each_k_steps) + '\n\n' + 
+                     '--------------------------------------------------------------------------------\n')
 
         print('Started training...')
 
@@ -333,6 +356,12 @@ class Agent(object):
                 #	only optimize each kth step
                 if self.steps%self.optimize_each_k == 0:
                     loss = self.optimize(net_updates)
+
+                    # Logging
+                    loss_history.append(loss)
+                    #q_history.append(q_value)
+                    #exp_q_history.append(exp_q_value)
+
                     net_updates += 1
 
                 # set current state to next state to select next action
@@ -345,10 +374,14 @@ class Agent(object):
                 # plays episode until there are no more lives left ( == done)
                 if done:
                     break;
+            
+            # Save rewards
+            reward_history.append(total_reward)
+            reward_clamped_history.append(total_reward_clamped)
 
             print('Episode:', i_episode,
                   '\tnum_steps:', self.steps,
-                  '\treward: (', total_reward_clamped, '/', total_reward, ')',
+                  '\t\treward: (', total_reward_clamped, '/', total_reward, ')',
                   '\tloss:', loss,
                   '\tbest score so far: (', best_score_clamped, '/', best_score, ')',
                   '\treplay size:', len(self.replay))
@@ -371,19 +404,27 @@ class Agent(object):
                       ' games: (', avg_score_clamped, '/',avg_score, ')',
                       '\tbest score so far: (', best_score_clamped, '/', best_score, ')')
                 # Logfile
-                with open(filename, "a") as logfile:
-                    logfile.write('Episode: '+ str(i_episode) +
+                with open(logfile, 'a') as fp:
+                    fp.write('Episode: '+ str(i_episode) +
                                   '\tsteps: ' + str(self.steps) +
                                   '\t\tavg on last ' + str(log_avg_episodes) +
                                   ' games: (' + str(avg_score_clamped) + '/' + str(avg_score) + ')' +
                                   '\tbest score so far: (' + str(best_score_clamped) + '/' + str(best_score) + ')\n')
+                # Dump loss & reward
+                with open(loss_file, 'wb') as fp:
+                    pickle.dump(loss_history, fp)
+                with open(reward_file, 'wb') as fp:
+                    pickle.dump(reward_history, fp)
+                with open(reward_clamped_file, 'wb') as fp:
+                    pickle.dump(reward_clamped_history, fp)
+
                 avg_score_clamped = 0
                 avg_score = 0
 
             if i_episode % self.save_net_each_k_episodes == 0:
-                with open(filename, "a") as logfile:
-                    logfile.write('Saved model at episode ' + str(i_episode) + '...\n')
-                self.target_net.save('modelParams/' + self.game + '-' + str(i_episode) + '_episodes.model')
+                with open(logfile, 'a') as fp:
+                    fp.write('Saved model at episode ' + str(i_episode) + '...\n')
+                self.target_net.save(sub_dir + 'modelParams/' + self.game + '-' + str(i_episode) + '_episodes.model')
 
         print('Training done!')
-        self.target_net.save('modelParams/' + self.game + '.model')
+        self.target_net.save(sub_dir + 'modelParams/' + self.game + '.model')
