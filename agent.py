@@ -32,7 +32,7 @@ class Agent(object):
                  mem_size = 1024*1024,
                  state_buffer_size = 4,
                  batch_size = 64,
-                 learning_rate = 1e-4,
+                 learning_rate = 1e-5,
                  pretrained_model = None,
                  record=False,
                  seed=0):
@@ -247,7 +247,7 @@ class Agent(object):
             # Render game
             self.env.game.render(mode='human')
 
-            screen, reward, done, info = self.env.step(action)
+            screen, reward, done, info = self.env.step(action[0,0])
             score += reward
 
             #   save latest frame, discard oldest
