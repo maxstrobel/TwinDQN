@@ -302,7 +302,7 @@ class Agent(object):
                      'Target net update after k frame:    ' + str(self.update_target_net_each_k_steps) + '\n\n' + 
                      '--------------------------------------------------------------------------------\n')
 
-        print('Started training...')
+        print('Started training...\nLogging to', sub_dir)
 
         for i_episode in range(num_episodes):
             # reset game at the start of each episode
@@ -381,9 +381,9 @@ class Agent(object):
 
             print('Episode:', i_episode,
                   '\tnum_steps:', self.steps,
-                  '\t\treward: (', total_reward_clamped, '/', total_reward, ')',
-                  '\tloss:', loss,
-                  '\tbest score so far: (', best_score_clamped, '/', best_score, ')',
+                  '\treward: (', total_reward_clamped, '/', total_reward, ')',
+                  '\t\tloss:', loss,
+                  '\t\tbest score so far: (', best_score_clamped, '/', best_score, ')',
                   '\treplay size:', len(self.replay))
 
             avg_score_clamped += total_reward_clamped
@@ -424,7 +424,7 @@ class Agent(object):
             if i_episode % self.save_net_each_k_episodes == 0:
                 with open(logfile, 'a') as fp:
                     fp.write('Saved model at episode ' + str(i_episode) + '...\n')
-                self.target_net.save(sub_dir + 'modelParams/' + self.game + '-' + str(i_episode) + '_episodes.model')
+                self.target_net.save(sub_dir + self.game + '-' + str(i_episode) + '_episodes.model')
 
         print('Training done!')
         self.target_net.save(sub_dir + 'modelParams/' + self.game + '.model')
