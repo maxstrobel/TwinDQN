@@ -427,4 +427,4 @@ class Agent(object):
                 self.target_net.save(sub_dir + self.game + '-' + str(i_episode) + '_episodes.model')
 
         print('Training done!')
-        self.target_net.save(sub_dir + 'modelParams/' + self.game + '.model')
+        self.target_net.save(sub_dir + self.game + '.model')
