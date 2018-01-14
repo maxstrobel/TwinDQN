@@ -32,10 +32,10 @@ def gray2pytorch(img):
 class Agent(object):
     def __init__(self,
                  game,
-                 mem_size = 1024*1024,
+                 mem_size = 1000000,
                  state_buffer_size = 4,
-                 batch_size = 64,
-                 learning_rate = 1e-5,
+                 batch_size = 32,
+                 learning_rate = 2.5e-4,
                  pretrained_model = None,
                  record = False):
         """
@@ -93,8 +93,8 @@ class Agent(object):
 
         # Optimizer
         self.learning_rate = learning_rate
-        self.optimizer = optim.Adam(self.net.parameters(), lr=learning_rate)
-        #self.optimizer = optim.RMSprop(self.net.parameters(), lr = 0.00025,alpha=0.95, eps=0.01)
+        #self.optimizer = optim.Adam(self.net.parameters(), lr=learning_rate)
+        self.optimizer = optim.RMSprop(self.net.parameters(), lr=learning_rate,alpha=0.95, eps=0.01)
 
         self.batch_size = batch_size
         self.optimize_each_k = 4
@@ -105,7 +105,7 @@ class Agent(object):
 
         # Fill replay memory before training
         if not self.pretrained_model:
-            self.start_train_after = 25000
+            self.start_train_after = 50000
         else:
             self.start_train_after = mem_size//2
 
@@ -130,9 +130,9 @@ class Agent(object):
         action: int
         """
         # Hyperparameters
-        EPSILON_START = 0.9
-        EPSILON_END = 0.01
-        EPSILON_DECAY = 75000
+        EPSILON_START = 1
+        EPSILON_END = 0.1
+        EPSILON_DECAY = 200000
 
         # Decrease of epsilon value
         if not self.pretrained_model:
@@ -292,19 +292,19 @@ class Agent(object):
 
         # Initialize logfile with header
         with open(logfile, 'w') as fp:
-            fp.write(datetime.now().strftime('%Y%m%d_%H%M%S') + '\n' +
-                     'Trained game:    ' + str(self.game) + '\n' +
-                     'Learning rate:    ' + str(self.learning_rate) + '\n' +
-                     'Batch size:    ' + str(self.batch_size) + '\n' +
-                     'Pretrained:    ' + str(self.pretrained_model) + '\n' +
+            fp.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S') + '\n' +
+                     'Trained game:                       ' + str(self.game) + '\n' +
+                     'Learning rate:                      ' + str(self.learning_rate) + '\n' +
+                     'Batch size:                         ' + str(self.batch_size) + '\n' +
+                     'Pretrained:                         ' + str(self.pretrained_model) + '\n' +
                      'Started training after k frames:    ' + str(self.start_train_after) + '\n' +
-                     'Optimized after k frames:    ' + str(self.optimize_each_k) + '\n' +
+                     'Optimized after k frames:           ' + str(self.optimize_each_k) + '\n' +
                      'Target net update after k frame:    ' + str(self.update_target_net_each_k_steps) + '\n\n' + 
                      '--------------------------------------------------------------------------------\n')
 
         print('Started training...\nLogging to', sub_dir)
 
-        for i_episode in range(num_episodes):
+        for i_episode in range(1,num_episodes):
             # reset game at the start of each episode
             screen = self.env.reset()
 
@@ -314,7 +314,7 @@ class Agent(object):
                 last_k_frames.append(None)
                 last_k_frames[j] = gray2pytorch(screen)
 
-            if i_episode == 0:
+            if i_episode == 1:
                 self.replay.pushFrame(last_k_frames[0].cpu())
 
             # frame is saved as ByteTensor -> convert to gray value between 0 and 1
@@ -332,11 +332,11 @@ class Agent(object):
 
                 # perform selected action on game
                 screen, reward, done, info = self.env.step(action[0,0])#envTest.step(action[0,0])
-                total_reward += reward
+                total_reward += int(reward)
 
                 #   clamp rewards
                 reward = torch.Tensor([np.clip(reward,-1,1)])
-                total_reward_clamped += reward[0]
+                total_reward_clamped += int(reward[0])
 
                 #   save latest frame, discard oldest
                 for j in range(self.num_stored_frames-1):
@@ -370,21 +370,21 @@ class Agent(object):
 
                 if self.use_cuda:
                     state = state.cuda()
-                
+
                 # plays episode until there are no more lives left ( == done)
                 if done:
                     break;
-            
+
             # Save rewards
             reward_history.append(total_reward)
             reward_clamped_history.append(total_reward_clamped)
 
-            print('Episode:', i_episode,
-                  '\tnum_steps:', self.steps,
-                  '\treward: (', total_reward_clamped, '/', total_reward, ')',
-                  '\t\tloss:', loss,
-                  '\t\tbest score so far: (', best_score_clamped, '/', best_score, ')',
-                  '\treplay size:', len(self.replay))
+            print('Episode: {:6} |  '.format(i_episode),
+                  'steps {:8} |  '.format(self.steps),
+                  'loss: {:.2E} |  '.format(loss if loss else 0),
+                  'score: ({:4}/{:4}) |  '.format(total_reward_clamped,total_reward),
+                  'best score: ({:4}/{:4}) |  '.format(best_score_clamped,best_score),
+                  'replay size: {:7}'.format(len(self.replay)))
 
             avg_score_clamped += total_reward_clamped
             avg_score += total_reward
@@ -396,20 +396,21 @@ class Agent(object):
             if i_episode % log_avg_episodes == 0 and i_episode!=0:
                 avg_score_clamped /= log_avg_episodes
                 avg_score /= log_avg_episodes
-                
-                print('Logging to file: \n',
-                      'Episode: ', i_episode,
-                      '\tsteps: ', self.steps,
-                      '\t\tavg on last ', log_avg_episodes,
-                      ' games: (', avg_score_clamped, '/',avg_score, ')',
-                      '\tbest score so far: (', best_score_clamped, '/', best_score, ')')
+
+                print('----------------------------------------------------------------'
+                      '-----------------------------------------------------------------',
+                      '\nLogging to file: \nEpisode: {:6}   '.format(i_episode),
+                      'steps: {:8}   '.format(self.steps),
+                      'avg on last {:4} games ({:6.1f}/{:6.1f})   '.format(log_avg_episodes, avg_score_clamped,avg_score),
+                      'best score: ({:4}/{:4})'.format(best_score_clamped, best_score),
+                      '\n---------------------------------------------------------------'
+                      '------------------------------------------------------------------')
                 # Logfile
                 with open(logfile, 'a') as fp:
-                    fp.write('Episode: '+ str(i_episode) +
-                                  '\tsteps: ' + str(self.steps) +
-                                  '\t\tavg on last ' + str(log_avg_episodes) +
-                                  ' games: (' + str(avg_score_clamped) + '/' + str(avg_score) + ')' +
-                                  '\tbest score so far: (' + str(best_score_clamped) + '/' + str(best_score) + ')\n')
+                    fp.write('Episode: {:6} |  '.format(i_episode) +
+                             'steps: {:8} |  '.format(self.steps) +
+                             'avg on last {:4} games ({:6.1f}/{:6.1f}) |  '.format(log_avg_episodes, avg_score_clamped,avg_score) +
+                             'best score: ({:4}/{:4})\n'.format(best_score_clamped, best_score))
                 # Dump loss & reward
                 with open(loss_file, 'wb') as fp:
                     pickle.dump(loss_history, fp)
@@ -427,4 +428,4 @@ class Agent(object):
                 self.target_net.save(sub_dir + self.game + '-' + str(i_episode) + '_episodes.model')
 
         print('Training done!')
-        self.target_net.save(sub_dir + 'modelParams/' + self.game + '.model')
+        self.target_net.save(sub_dir + self.game + '.model')
