@@ -300,7 +300,8 @@ class Agent(object):
                      'Started training after k frames:    ' + str(self.start_train_after) + '\n' +
                      'Optimized after k frames:           ' + str(self.optimize_each_k) + '\n' +
                      'Target net update after k frame:    ' + str(self.update_target_net_each_k_steps) + '\n\n' + 
-                     '--------------------------------------------------------------------------------\n')
+                     '------------------------------------------------------' +
+                     '--------------------------------------------------\n')
 
         print('Started training...\nLogging to', sub_dir)
 
