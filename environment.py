@@ -161,8 +161,12 @@ class Environment(object):
         - done: boolean to signal end of game
         - info: dict with the current number of lives
         """
+        lives_before = self.get_lives()
         observation, reward, done, info = self.game.step(action)
+        lives_after = self.get_lives()
         observation = self.preprocess(observation)
+        if lives_before>lives_after:
+            reward = -1
         return observation, reward, done, info
 
 
