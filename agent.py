@@ -300,7 +300,7 @@ class Agent(object):
                      'Pretrained:                         ' + str(self.pretrained_model) + '\n' +
                      'Started training after k frames:    ' + str(self.start_train_after) + '\n' +
                      'Optimized after k frames:           ' + str(self.optimize_each_k) + '\n' +
-                     'Target net update after k frame:    ' + str(self.update_target_net_each_k_steps) + '\n\n' + 
+                     'Target net update after k frame:    ' + str(self.update_target_net_each_k_steps) + '\n\n' +
                      '------------------------------------------------------' +
                      '--------------------------------------------------\n')
 
@@ -323,8 +323,9 @@ class Agent(object):
             state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
             done = False # games end indicator variable
-            total_reward = 0 # reset score
-            total_reward_clamped = 0
+            # reset score with initial lives, because every lost live adds -1
+            total_reward = self.env.get_lives()
+            total_reward_clamped = self.env.get_lives()
 
             # Loop over one game
             while not done:
