@@ -1,0 +1,10 @@
+	Assault:			Phoenix:			SpaceInvaders:			Breakout:			BeamRider:			Skiing:
+0: 	idle 				idle				idle				idle				idle				idle
+1:	idle?				shoot				shoot				reset ball			idle?				right
+2:	shoot				right				right				right				start?				left
+3:	right				left				left				left				right				-
+4:	left				shield				right + shoot			-				left				-
+5:	shoot right			right + shoot			left + shoot			-				right + ?			-
+6:	shoot left			left + shoot			-				-				left + ?			-
+7:	-				shield + shoot			-				-				right + shoot			-
+8:	-				-				-				-				left + shoot			-
