@@ -97,7 +97,7 @@ class Agent(object):
         #self.optimizer = optim.RMSprop(self.net.parameters(), lr=learning_rate,alpha=0.95, eps=0.01)
 
         self.batch_size = batch_size
-        self.optimize_each_k = 4
+        self.optimize_each_k = 1
         self.update_target_net_each_k_steps = 10000
 
         # Replay Memory (Long term memory)
@@ -132,12 +132,13 @@ class Agent(object):
         # Hyperparameters
         EPSILON_START = 1
         EPSILON_END = 0.1
-        EPSILON_DECAY = 200000
+        EPSILON_DECAY = 1000000
 
         # Decrease of epsilon value
         if not self.pretrained_model:
-            epsilon = EPSILON_END + (EPSILON_START - EPSILON_END) * \
-                                    np.exp(-1. * (self.steps-self.batch_size) / EPSILON_DECAY)
+            #epsilon = EPSILON_END + (EPSILON_START - EPSILON_END) * \
+            #                        np.exp(-1. * (self.steps-self.batch_size) / EPSILON_DECAY)
+            epsilon = EPSILON_START - self.steps * (EPSILON_START - EPSILON_END) / EPSILON_DECAY
         else:
             epsilon = EPSILON_END
 
