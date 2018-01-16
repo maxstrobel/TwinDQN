@@ -7,19 +7,18 @@ import matplotlib.pyplot as plt
 from cv2 import resize
 
 class Environment(object):
-    def __init__(self, game, inner_dimensions, width=84, height=84, record=False, seed=0):
+    def __init__(self, game, inner_dimensions, frameskip=4, width=84, height=84):
         """
         Inputs:
         - game: string to select the game
         - inner_dimensions: tuple (h1,h2,w1,w2) with dimensions of the game (to crop borders)
                     breakout: (32, 195, 8, 152) -> exact dimensions
-        - downsampling_rate: int
-        - record: boolean to enable record option
-        - seed: int to reproduce results
+        - frameskip: int or tuple (range to choose randomly)
+        - width: int
+        - height: int
         """
         # Setup game
-        self.game = gym.make(game)
-        self.game.seed(seed)
+        self.game = gym.make(game, frameskip=frameskip)
         self.game.reset()
 
         # Preprocessing parameter

@@ -36,7 +36,8 @@ class Agent(object):
                  state_buffer_size = 4,
                  batch_size = 64,
                  learning_rate = 1e-5,
-                 pretrained_model = None
+                 pretrained_model = None,
+                 frame_skip = 4
                  ):
         """
         Inputs:
@@ -69,7 +70,7 @@ class Agent(object):
             dimensions = (32, 180, 9, 159)
 
         # Environment
-        self.env = Environment(game, dimensions)
+        self.env = Environment(game, dimensions, frame_skip=frame_skip)
 
         # Cuda
         self.use_cuda = torch.cuda.is_available()
