@@ -34,10 +34,9 @@ class Agent(object):
                  game,
                  mem_size = 1000000,
                  state_buffer_size = 4,
-                 batch_size = 32,
-                 learning_rate = 2.5e-4,
-                 pretrained_model = None,
-                 record = False):
+                 batch_size = 64,
+                 learning_rate = 1e-5,
+                 pretrained_model = None
         """
         Inputs:
         - game: string to select the game
@@ -93,8 +92,8 @@ class Agent(object):
 
         # Optimizer
         self.learning_rate = learning_rate
-        #self.optimizer = optim.Adam(self.net.parameters(), lr=learning_rate)
-        self.optimizer = optim.RMSprop(self.net.parameters(), lr=learning_rate,alpha=0.95, eps=0.01)
+        self.optimizer = optim.Adam(self.net.parameters(), lr=learning_rate)
+        #self.optimizer = optim.RMSprop(self.net.parameters(), lr=learning_rate,alpha=0.95, eps=0.01)
 
         self.batch_size = batch_size
         self.optimize_each_k = 4
