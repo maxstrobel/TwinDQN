@@ -10,12 +10,12 @@ Max W:
 Max S:
   - Optimizing hyperparameter (learning rate, replay size, batch size)
   - image input -> plot output of conv layer
-  - check: neg rewards
   
 Unassigned:
   - make two games more generic: function for mapping; adapt main
-  - add functions for: max noops 30 / action after live lost
   - check: save model/update target @ best score
 
 Done:
-  - Visualizing (weights, loss, reward, games) 
+  - Visualizing (weights, loss, reward, games)
+  - add functions for: max noops 30 / action after live lost
+  - check: neg rewards
