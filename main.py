@@ -6,7 +6,7 @@ from agent import Agent
 
 def main(args):
     agent = Agent(args.game, pretrained_model=args.pretrained_model)
-    
+
     if args.play:
         agent.play()
     else:

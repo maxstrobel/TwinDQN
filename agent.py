@@ -29,14 +29,26 @@ Transition = namedtuple('Transition', ('state','action','next_state','reward'))
 def gray2pytorch(img):
     return torch.from_numpy(img[:,:,None].transpose(2, 0, 1)).unsqueeze(0)
 
+# dimensions: tuple (h1,h2,w1,w2) with dimensions of the game (to crop borders)
+dimensions = {'Breakout-v0': (32, 195, 8, 152),
+              'SpaceInvaders-v0': (21, 195, 20, 141),
+              'Assault-v0': (50, 240, 5, 155),
+              'Phoenix-v0': (23, 183, 0, 160),
+              'Skiing-v0': (55, 202, 8, 152),
+              'Enduro-v0': (50, 154, 8, 160),
+              'BeamRider-v0': (32, 180, 9, 159),
+              }
+
+
 class Agent(object):
     def __init__(self,
                  game,
-                 mem_size = 1000000,
+                 mem_size = 800000,
                  state_buffer_size = 4,
                  batch_size = 64,
                  learning_rate = 1e-5,
-                 pretrained_model = None
+                 pretrained_model = None,
+                 frameskip = 4
                  ):
         """
         Inputs:
@@ -52,24 +64,8 @@ class Agent(object):
         # Namestring
         self.game = game
 
-        # dimensions: tuple (h1,h2,w1,w2) with dimensions of the game (to crop borders)
-        if self.game == 'Breakout-v0':
-            dimensions = (32, 195, 8, 152)
-        elif self.game == 'SpaceInvaders-v0':
-            dimensions = (21, 195, 20, 141)
-        elif self.game == 'Assault-v0':
-            dimensions = (50, 240, 5, 155)
-        elif self.game == 'Phoenix-v0':
-            dimensions = (23, 183, 0, 160)
-        elif self.game == 'Skiing-v0':
-            dimensions = (55, 202, 8, 152)
-        elif self.game == 'Enduro-v0':
-            dimensions = (50, 154, 8, 160)
-        elif self.game == 'BeamRider-v0':
-            dimensions = (32, 180, 9, 159)
-
         # Environment
-        self.env = Environment(game, dimensions)
+        self.env1 = Environment(game, dimensions[game], frameskip=frameskip)
 
         # Cuda
         self.use_cuda = torch.cuda.is_available()
@@ -97,11 +93,12 @@ class Agent(object):
         #self.optimizer = optim.RMSprop(self.net.parameters(), lr=learning_rate,alpha=0.95, eps=0.01)
 
         self.batch_size = batch_size
-        self.optimize_each_k = 4
+        self.optimize_each_k = 1
         self.update_target_net_each_k_steps = 10000
 
         # Replay Memory (Long term memory)
         self.replay = ReplayMemory(capacity=mem_size, num_history_frames=state_buffer_size)
+        self.mem_size = mem_size
 
         # Fill replay memory before training
         if not self.pretrained_model:
@@ -132,12 +129,13 @@ class Agent(object):
         # Hyperparameters
         EPSILON_START = 1
         EPSILON_END = 0.1
-        EPSILON_DECAY = 200000
+        EPSILON_DECAY = 1000000
 
         # Decrease of epsilon value
         if not self.pretrained_model:
-            epsilon = EPSILON_END + (EPSILON_START - EPSILON_END) * \
-                                    np.exp(-1. * (self.steps-self.batch_size) / EPSILON_DECAY)
+            #epsilon = EPSILON_END + (EPSILON_START - EPSILON_END) * \
+            #                        np.exp(-1. * (self.steps-self.batch_size) / EPSILON_DECAY)
+            epsilon = EPSILON_START - self.steps * (EPSILON_START - EPSILON_END) / EPSILON_DECAY
         else:
             epsilon = EPSILON_END
 
@@ -296,10 +294,11 @@ class Agent(object):
                      'Trained game:                       ' + str(self.game) + '\n' +
                      'Learning rate:                      ' + str(self.learning_rate) + '\n' +
                      'Batch size:                         ' + str(self.batch_size) + '\n' +
+                     'Memory size(replay):                ' + str(self.mem_size) + '\n' +
                      'Pretrained:                         ' + str(self.pretrained_model) + '\n' +
                      'Started training after k frames:    ' + str(self.start_train_after) + '\n' +
                      'Optimized after k frames:           ' + str(self.optimize_each_k) + '\n' +
-                     'Target net update after k frame:    ' + str(self.update_target_net_each_k_steps) + '\n\n' + 
+                     'Target net update after k frame:    ' + str(self.update_target_net_each_k_steps) + '\n\n' +
                      '------------------------------------------------------' +
                      '--------------------------------------------------\n')
 
@@ -322,8 +321,9 @@ class Agent(object):
             state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
             done = False # games end indicator variable
-            total_reward = 0 # reset score
-            total_reward_clamped = 0
+            # reset score with initial lives, because every lost live adds -1
+            total_reward = self.env.get_lives()
+            total_reward_clamped = self.env.get_lives()
 
             # Loop over one game
             while not done:

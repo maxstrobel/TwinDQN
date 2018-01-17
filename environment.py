@@ -7,19 +7,19 @@ import matplotlib.pyplot as plt
 from cv2 import resize
 
 class Environment(object):
-    def __init__(self, game, inner_dimensions, width=84, height=84, record=False, seed=0):
+    def __init__(self, game, inner_dimensions, frameskip=4, width=84, height=84):
         """
         Inputs:
         - game: string to select the game
         - inner_dimensions: tuple (h1,h2,w1,w2) with dimensions of the game (to crop borders)
                     breakout: (32, 195, 8, 152) -> exact dimensions
-        - downsampling_rate: int 
-        - record: boolean to enable record option
-        - seed: int to reproduce results
+        - frameskip: int or tuple (range to choose randomly)
+        - width: int
+        - height: int
         """
         # Setup game
         self.game = gym.make(game)
-        self.game.seed(seed)
+        self.game.unwrapped.frameskip = frameskip
         self.game.reset()
 
         # Preprocessing parameter
@@ -37,7 +37,7 @@ class Environment(object):
         Inputs:
         - mode: string to select game mode
                 'human': window rendered with live game
-                'rgb_array': preprocessed images rendered                
+                'rgb_array': preprocessed images rendered
         """
         observation = self.game.reset()
         if mode == 'rgb_array':
@@ -124,7 +124,7 @@ class Environment(object):
         Returns the current observation
 
         Returns:
-        - observation: np.array with current observation (preprocessed) 
+        - observation: np.array with current observation (preprocessed)
         """
         observation = self.game.render(mode='rgb_array')
         observation = self.preprocess(observation)
@@ -133,7 +133,7 @@ class Environment(object):
 
     def plot_observation(self):
         """
-        Plots the current observation 
+        Plots the current observation
         """
         observation = self.game.render(mode='rgb_array')
         processed_observation = self.preprocess(observation)
@@ -156,7 +156,7 @@ class Environment(object):
 
         Returns:
 
-        - observation: np.array with current observation (preprocessed) 
+        - observation: np.array with current observation (preprocessed)
         - reward: int
         - done: boolean to signal end of game
         - info: dict with the current number of lives
@@ -166,7 +166,7 @@ class Environment(object):
         lives_after = self.get_lives()
         observation = self.preprocess(observation)
         if lives_before>lives_after:
-            reward = -1
+            reward = -1.0
         return observation, reward, done, info
 
 
@@ -183,7 +183,7 @@ class Environment(object):
     def get_actions(self):
         """
         Returns the executable actions of the current environment
-        
+
         Returns:
         - actions: list of strings with the actions
         """
