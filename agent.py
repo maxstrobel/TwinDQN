@@ -29,6 +29,17 @@ Transition = namedtuple('Transition', ('state','action','next_state','reward'))
 def gray2pytorch(img):
     return torch.from_numpy(img[:,:,None].transpose(2, 0, 1)).unsqueeze(0)
 
+# dimensions: tuple (h1,h2,w1,w2) with dimensions of the game (to crop borders)
+dimensions = {'Breakout-v0': (32, 195, 8, 152),
+              'SpaceInvaders-v0': (21, 195, 20, 141),
+              'Assault-v0': (50, 240, 5, 155),
+              'Phoenix-v0': (23, 183, 0, 160),
+              'Skiing-v0': (55, 202, 8, 152),
+              'Enduro-v0': (50, 154, 8, 160),
+              'BeamRider-v0': (32, 180, 9, 159),
+              }
+
+
 class Agent(object):
     def __init__(self,
                  game,
@@ -53,24 +64,8 @@ class Agent(object):
         # Namestring
         self.game = game
 
-        # dimensions: tuple (h1,h2,w1,w2) with dimensions of the game (to crop borders)
-        if self.game == 'Breakout-v0':
-            dimensions = (32, 195, 8, 152)
-        elif self.game == 'SpaceInvaders-v0':
-            dimensions = (21, 195, 20, 141)
-        elif self.game == 'Assault-v0':
-            dimensions = (50, 240, 5, 155)
-        elif self.game == 'Phoenix-v0':
-            dimensions = (23, 183, 0, 160)
-        elif self.game == 'Skiing-v0':
-            dimensions = (55, 202, 8, 152)
-        elif self.game == 'Enduro-v0':
-            dimensions = (50, 154, 8, 160)
-        elif self.game == 'BeamRider-v0':
-            dimensions = (32, 180, 9, 159)
-
         # Environment
-        self.env = Environment(game, dimensions, frameskip=frameskip)
+        self.env1 = Environment(game, dimensions[game], frameskip=frameskip)
 
         # Cuda
         self.use_cuda = torch.cuda.is_available()
