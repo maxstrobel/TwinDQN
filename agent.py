@@ -15,6 +15,7 @@ import os
 
 from environment import Environment
 from dqn import DQN
+from doubledqn import DOUBLEDQN
 from replaymemory import ReplayMemory
 
 # if gpu is to be used
@@ -42,7 +43,8 @@ dimensions = {'Breakout-v0': (32, 195, 8, 152),
 
 class Agent(object):
     def __init__(self,
-                 game,
+                 game1,
+                 game2 = None,
                  mem_size = 800000,
                  state_buffer_size = 4,
                  batch_size = 64,
@@ -62,24 +64,29 @@ class Agent(object):
         """
 
         # Namestring
-        self.game = game
+        self.game1 = game1
+        self.game2 = game2
 
         # Environment
-        self.env1 = Environment(game, dimensions[game], frameskip=frameskip)
+        self.env1 = Environment(game1, dimensions[game1], frameskip=frameskip)
+        self.env2 = Environment(game2, dimensions[game2], frameskip=frameskip)
+
+
+        # Neural net
+        self.net = DOUBLEDQN(channels_in = state_buffer_size,
+           num_actions_first = self.env1.get_number_of_actions(),
+           num_actions_second = self.env2.get_number_of_actions())
+        self.target_net = DOUBLEDQN(channels_in = state_buffer_size,
+                       num_actions_first = self.env1.get_number_of_actions(),
+                       num_actions_second = self.env2.get_number_of_actions())
 
         # Cuda
         self.use_cuda = torch.cuda.is_available()
-
-        # Neural network
-        self.net = DQN(channels_in = state_buffer_size,
-                       num_actions = self.env.get_number_of_actions())
-
-        self.target_net = DQN(channels_in = state_buffer_size,
-                       num_actions = self.env.get_number_of_actions())
         if self.use_cuda:
             self.net.cuda()
             self.target_net.cuda()
 
+        # Pretrained
         if pretrained_model:
             self.net.load(pretrained_model)
             self.target_net.load(pretrained_model)
@@ -95,6 +102,7 @@ class Agent(object):
         self.batch_size = batch_size
         self.optimize_each_k = 1
         self.update_target_net_each_k_steps = 10000
+        self.noops_count = 0
 
         # Replay Memory (Long term memory)
         self.replay = ReplayMemory(capacity=mem_size, num_history_frames=state_buffer_size)
@@ -115,7 +123,8 @@ class Agent(object):
         # Save net
         self.save_net_each_k_episodes = 500
 
-    def select_action(self, observation):
+
+    def select_action(self, observation, mode='train'):
         """
         Select an random action from action space or an proposed action
         from neural network depending on epsilon
@@ -130,6 +139,7 @@ class Agent(object):
         EPSILON_START = 1
         EPSILON_END = 0.1
         EPSILON_DECAY = 1000000
+        MAXNOOPS = 30
 
         # Decrease of epsilon value
         if not self.pretrained_model:
@@ -139,17 +149,26 @@ class Agent(object):
         else:
             epsilon = EPSILON_END
 
-        if epsilon > random():
-            # Random action
-            action = self.env.sample_action()
-            action = LongTensor([[action]])
-        else:
+        if epsilon < random() or mode=='play':
             # Action according to neural net
             # Wrap tensor into variable
             state_variable = Variable(observation, volatile=True)
 
             # Evaluate network and return action with maximum of activation
             action = self.net(state_variable).data.max(1)[1].view(1,1)
+
+            # Prevent noops
+            if action==0:
+                self.noops_count += 1
+                if self.noops_count == MAXNOOPS:
+                    action = 1
+                    self.noops_count = 0
+            else:
+                self.noops_count = 0
+        else:
+            # Random action
+            action = self.env.sample_action()
+            action = LongTensor([[action]])
 
         return action
 
@@ -272,9 +291,9 @@ class Agent(object):
         net_updates = 0
 
         # Logging
-        sub_dir = self.game + '_' + datetime.now().strftime('%Y%m%d_%H%M%S') + '/'
+        sub_dir = self.game1 + '+' + self.game2 + '_' + datetime.now().strftime('%Y%m%d_%H%M%S') + '/'
         os.makedirs(sub_dir)
-        logfile = sub_dir + self.game + '_train.log'
+        logfile = sub_dir + 'train.log'
         loss_file = sub_dir + 'loss.pickle'
         reward_file = sub_dir + 'reward.pickle'
         reward_clamped_file = sub_dir + 'reward_clamped.pickle'
@@ -291,7 +310,8 @@ class Agent(object):
         # Initialize logfile with header
         with open(logfile, 'w') as fp:
             fp.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S') + '\n' +
-                     'Trained game:                       ' + str(self.game) + '\n' +
+                     'Trained game (first):               ' + str(self.game1) + '\n' +
+                     'Trained game (second):              ' + str(self.game2) + '\n' +
                      'Learning rate:                      ' + str(self.learning_rate) + '\n' +
                      'Batch size:                         ' + str(self.batch_size) + '\n' +
                      'Memory size(replay):                ' + str(self.mem_size) + '\n' +
