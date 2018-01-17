@@ -43,7 +43,7 @@ dimensions = {'Breakout-v0': (32, 195, 8, 152),
 class Agent(object):
     def __init__(self,
                  game,
-                 mem_size = 1000000,
+                 mem_size = 800000,
                  state_buffer_size = 4,
                  batch_size = 64,
                  learning_rate = 1e-5,
@@ -98,6 +98,7 @@ class Agent(object):
 
         # Replay Memory (Long term memory)
         self.replay = ReplayMemory(capacity=mem_size, num_history_frames=state_buffer_size)
+        self.mem_size = mem_size
 
         # Fill replay memory before training
         if not self.pretrained_model:
@@ -293,6 +294,7 @@ class Agent(object):
                      'Trained game:                       ' + str(self.game) + '\n' +
                      'Learning rate:                      ' + str(self.learning_rate) + '\n' +
                      'Batch size:                         ' + str(self.batch_size) + '\n' +
+                     'Memory size(replay):                ' + str(self.mem_size) + '\n' +
                      'Pretrained:                         ' + str(self.pretrained_model) + '\n' +
                      'Started training after k frames:    ' + str(self.start_train_after) + '\n' +
                      'Optimized after k frames:           ' + str(self.optimize_each_k) + '\n' +
