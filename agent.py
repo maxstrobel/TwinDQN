@@ -103,6 +103,7 @@ class Agent(object):
 
         # Replay Memory (Long term memory)
         self.replay = ReplayMemory(capacity=mem_size, num_history_frames=state_buffer_size)
+	self.memsize = memsize
 
         # Fill replay memory before training
         if not self.pretrained_model:
@@ -298,6 +299,7 @@ class Agent(object):
                      'Trained game:                       ' + str(self.game) + '\n' +
                      'Learning rate:                      ' + str(self.learning_rate) + '\n' +
                      'Batch size:                         ' + str(self.batch_size) + '\n' +
+		     'Memory size(replay):                ' + str(len(self.memsize)) + '\n' +
                      'Pretrained:                         ' + str(self.pretrained_model) + '\n' +
                      'Started training after k frames:    ' + str(self.start_train_after) + '\n' +
                      'Optimized after k frames:           ' + str(self.optimize_each_k) + '\n' +
