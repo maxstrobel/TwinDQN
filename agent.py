@@ -65,7 +65,7 @@ class Agent(object):
         self.game = game
 
         # Environment
-        self.env1 = Environment(game, dimensions[game], frameskip=frameskip)
+        self.env = Environment(game, dimensions[game], frameskip=frameskip)
 
         # Cuda
         self.use_cuda = torch.cuda.is_available()
@@ -115,7 +115,7 @@ class Agent(object):
         # Save net
         self.save_net_each_k_episodes = 500
 
-    def select_action(self, observation):
+    def select_action(self, observation, mode='train'):
         """
         Select an random action from action space or an proposed action
         from neural network depending on epsilon
@@ -130,6 +130,7 @@ class Agent(object):
         EPSILON_START = 1
         EPSILON_END = 0.1
         EPSILON_DECAY = 1000000
+        MAXNOOPS = 30
 
         # Decrease of epsilon value
         if not self.pretrained_model:
@@ -139,17 +140,26 @@ class Agent(object):
         else:
             epsilon = EPSILON_END
 
-        if epsilon > random():
-            # Random action
-            action = self.env.sample_action()
-            action = LongTensor([[action]])
-        else:
+        if epsilon < random() or mode=='play':
             # Action according to neural net
             # Wrap tensor into variable
             state_variable = Variable(observation, volatile=True)
 
             # Evaluate network and return action with maximum of activation
             action = self.net(state_variable).data.max(1)[1].view(1,1)
+
+            # Prevent noops
+            if action[0,0]==0:
+                self.noops_count += 1
+                if self.noops_count == MAXNOOPS:
+                    action[0,0] = 1
+                    self.noops_count = 0
+            else:
+                self.noops_count = 0
+        else:
+            # Random action
+            action = self.env.sample_action()
+            action = LongTensor([[action]])
 
         return action
 
@@ -244,7 +254,7 @@ class Agent(object):
         state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
         while not done:
-            action = self.select_action(state)
+            action = self.select_action(state, mode='play')
 
             # Render game
             self.env.game.render(mode='human')
