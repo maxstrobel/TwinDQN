@@ -13,6 +13,7 @@ Max S:
   - check: neg rewards
   
 Unassigned:
+  - make two games more generic: function for mapping; adapt main
   - add functions for: max noops 30 / action after live lost
   - check: save model/update target @ best score
 
