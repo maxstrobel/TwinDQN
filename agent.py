@@ -44,7 +44,7 @@ dimensions = {'Breakout-v0': (32, 195, 8, 152),
 class Agent(object):
     def __init__(self,
                  game1,
-                 game2 = None,
+                 game2,
                  mem_size = 800000,
                  state_buffer_size = 4,
                  batch_size = 64,
