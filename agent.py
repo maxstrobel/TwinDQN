@@ -14,7 +14,6 @@ import pickle
 import os
 
 from environment import Environment
-from dqn import DQN
 from doubledqn import DOUBLEDQN
 from replaymemory import ReplayMemory
 
@@ -167,7 +166,7 @@ class Agent(object):
                 self.noops_count = 0
         else:
             # Random action
-            action = self.env.sample_action()
+            action = self.env2.sample_action()
             action = LongTensor([[action]])
 
         return action
@@ -326,13 +325,14 @@ class Agent(object):
 
         for i_episode in range(1,num_episodes):
             # reset game at the start of each episode
-            screen = self.env.reset()
+            screen1 = self.env1.reset()
+            screen2 = self.env2.reset()
 
             # list of k last frames
             last_k_frames = []
             for j in range(self.num_stored_frames):
                 last_k_frames.append(None)
-                last_k_frames[j] = gray2pytorch(screen)
+                last_k_frames[j] = torch.cat(gray2pytorch(screen1),gray2pytorch(screen2), dim=1)
 
             if i_episode == 1:
                 self.replay.pushFrame(last_k_frames[0].cpu())
@@ -340,19 +340,22 @@ class Agent(object):
             # frame is saved as ByteTensor -> convert to gray value between 0 and 1
             state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
-            done = False # games end indicator variable
+            # games end indicator variable
+            done1 = False
+            done2 = False
+
             # reset score with initial lives, because every lost live adds -1
             total_reward = self.env.get_lives()
             total_reward_clamped = self.env.get_lives()
 
             # Loop over one game
-            while not done:
+            while not done1 and done2:
                 self.steps +=1
 
                 action = self.select_action(state)
 
                 # perform selected action on game
-                screen, reward, done, info = self.env.step(action[0,0])#envTest.step(action[0,0])
+                screen2, reward2, done2, info2 = self.env2.step(action[0,0])
                 total_reward += int(reward)
 
                 #   clamp rewards

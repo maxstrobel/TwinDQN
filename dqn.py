@@ -37,20 +37,13 @@ class DQN(nn.Module):
         - x: PyTorch input Variable
         """
         N, C, H, W = x.size()
-        #print('forward',H,W)
-        x = F.relu(self.conv1(x))
-        #print('conv1',x.size())
-        x = F.relu(self.conv2(x))
-        #print('conv2',x.size())
-        x = F.relu(self.conv3(x))
-        #print('conv3',x.size())
-        x = x.view(N,-1) # change the view from 2d to 1d
-        #print('conv3_flat', x.size())
-        x = F.relu(self.fc4(x))
-        #print('fc1',x.size())
-        x = self.fc5(x)
-        #print('score',x.size())
 
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = x.view(N,-1) # change the view from 2d to 1d
+        x = F.relu(self.fc4(x))
+        x = self.fc5(x)
 
         return x
 
