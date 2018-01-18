@@ -49,7 +49,7 @@ class Agent(object):
                  batch_size = 64,
                  learning_rate = 1e-5,
                  pretrained_model = None,
-                 frameskip = 4
+                 frameskip = 3
                  ):
         """
         Inputs:
@@ -157,10 +157,10 @@ class Agent(object):
             action = self.net(state_variable).data.max(1)[1].view(1,1)
 
             # Prevent noops
-            if action==0:
+            if action[0,0]==0:
                 self.noops_count += 1
                 if self.noops_count == MAXNOOPS:
-                    action = 1
+                    action[0,0] = 1
                     self.noops_count = 0
             else:
                 self.noops_count = 0
@@ -171,6 +171,9 @@ class Agent(object):
 
         return action
 
+    def map_action(self, action):
+        
+        pass
 
     def optimize(self, net_updates):
         """
@@ -248,39 +251,58 @@ class Agent(object):
         Play a game with the current net and render it
         """
         done = False # games end indicator variable
-        score = 0
+
+        # Score counter
+        total_reward_game1 = 0
+        total_reward_game2 = 0
+        total_reward = 0
+
         # Reset game
-        screen = self.env.reset()
+        screen1 = self.env1.reset()
+        screen2 = self.env2.reset()
 
         # list of k last frames
         last_k_frames = []
         for j in range(self.num_stored_frames):
             last_k_frames.append(None)
-            last_k_frames[j] = gray2pytorch(screen)
+            last_k_frames[j] = torch.cat((gray2pytorch(screen1),gray2pytorch(screen2)),dim=1)
 
         # frame is saved as ByteTensor -> convert to gray value between 0 and 1
         state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
         while not done:
-            action = self.select_action(state)
+            action = self.select_action(state, mode='play')
+            action1 = self.map_action(action)
+            action2 = self.map_action(action)
 
             # Render game
-            self.env.game.render(mode='human')
+            self.env1.game.render(mode='human')
+            self.env2.game.render(mode='human')
 
-            screen, reward, done, info = self.env.step(action[0,0])
-            score += reward
+            # perform selected action on game
+            screen1, reward1, done1, info1 = self.env1.step(action1)
+            screen2, reward2, done2, info2 = self.env2.step(action2)
 
-            #   save latest frame, discard oldest
+            # Logging
+            total_reward_game1 += int(reward1)
+            total_reward_game2 += int(reward2)
+            total_reward += int(reward1) + int(reward2)
+
+            # save latest frame, discard oldest
             for j in range(self.num_stored_frames-1):
                 last_k_frames[j] = last_k_frames[j+1]
-            last_k_frames[self.num_stored_frames-1] = gray2pytorch(screen)
+            last_k_frames[self.num_stored_frames-1] = torch.cat((gray2pytorch(screen1),gray2pytorch(screen2)),dim=1)
 
             # convert frames to range 0 to 1 again
             state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
-        print('Final score:', score)
-        self.env.game.close()
-
+            # Merged game over indicator
+            done = done1 or done2
+        print('Final score (game1):', total_reward_game1)
+        print('Final score (game2):', total_reward_game2)
+        print('Final score (total):', total_reward)
+        self.env1.game.close()
+        self.env2.game.close()
 
     def train(self):
         """
@@ -293,18 +315,32 @@ class Agent(object):
         sub_dir = self.game1 + '+' + self.game2 + '_' + datetime.now().strftime('%Y%m%d_%H%M%S') + '/'
         os.makedirs(sub_dir)
         logfile = sub_dir + 'train.log'
-        loss_file = sub_dir + 'loss.pickle'
         reward_file = sub_dir + 'reward.pickle'
+        reward_file_game1 = sub_dir + 'reward_game1.pickle'
+        reward_file_game2 = sub_dir + 'reward_game2.pickle'
+        reward_clamped_file = sub_dir + 'reward_clamped.pickle'
+        reward_clamped_file_game1 = sub_dir + 'reward_clamped_game1.pickle'
+        reward_clamped_file_game2 = sub_dir + 'reward_clamped_game2.pickle'
         reward_clamped_file = sub_dir + 'reward_clamped.pickle'
         log_avg_episodes = 50
 
+        # Total scores
         best_score = 0
         best_score_clamped = 0
         avg_score = 0
         avg_score_clamped = 0
-        loss_history = []
         reward_history = []
         reward_clamped_history = []
+        # Scores game 1
+        avg_score_game1 = 0
+        avg_score_clamped_game1 = 0
+        reward_history_game1 = []
+        reward_clamped_history_game1 = []
+        # Scores game 2
+        avg_score_game2 = 0
+        avg_score_clamped_game2 = 0
+        reward_history_game2 = []
+        reward_clamped_history_game2 = []
 
         # Initialize logfile with header
         with open(logfile, 'w') as fp:
@@ -332,7 +368,8 @@ class Agent(object):
             last_k_frames = []
             for j in range(self.num_stored_frames):
                 last_k_frames.append(None)
-                last_k_frames[j] = torch.cat(gray2pytorch(screen1),gray2pytorch(screen2), dim=1)
+                last_k_frames[j] = torch.cat(gray2pytorch(screen1),
+                                             gray2pytorch(screen2), dim=1)
 
             if i_episode == 1:
                 self.replay.pushFrame(last_k_frames[0].cpu())
@@ -345,47 +382,60 @@ class Agent(object):
             done2 = False
 
             # reset score with initial lives, because every lost live adds -1
-            total_reward = self.env.get_lives()
-            total_reward_clamped = self.env.get_lives()
+            total_reward_game1 = 0
+            total_reward_clamped_game1 = self.env1.get_lives()
+            total_reward_game2 = 0
+            total_reward_clamped_game2 = self.env1.get_lives()
+            total_reward = 0
+            total_reward_clamped = total_reward_clamped_game1 + total_reward_clamped_game2
 
             # Loop over one game
             while not done1 and done2:
                 self.steps +=1
 
                 action = self.select_action(state)
+                action1 = self.map_action(action)
+                action2 = self.map_action(action)
 
                 # perform selected action on game
-                screen2, reward2, done2, info2 = self.env2.step(action[0,0])
-                total_reward += int(reward)
+                screen1, reward1, done1, info1 = self.env1.step(action1)
+                screen2, reward2, done2, info2 = self.env2.step(action2)
+                # Logging
+                total_reward_game1 += int(reward1)
+                total_reward_game2 += int(reward2)
+                total_reward += int(reward1) + int(reward2)
 
                 #   clamp rewards
-                reward = torch.Tensor([np.clip(reward,-1,1)])
-                total_reward_clamped += int(reward[0])
+                reward1_clamped = np.clip(reward1,-1,1)
+                reward2_clamped = np.clip(reward2,-1,1)
+                # Logging
+                total_reward_clamped_game1 += reward1_clamped
+                total_reward_clamped_game2 += reward2_clamped
+                total_reward_clamped += reward1_clamped + reward2_clamped
+
+                # Bake reward into tensor
+                reward = torch.FloatTensor([reward1_clamped+reward2_clamped])
 
                 #   save latest frame, discard oldest
                 for j in range(self.num_stored_frames-1):
                     last_k_frames[j] = last_k_frames[j+1]
-                last_k_frames[self.num_stored_frames-1] = gray2pytorch(screen)
+                last_k_frames[self.num_stored_frames-1] = torch.cat(gray2pytorch(screen1),
+                                                                    gray2pytorch(screen2), dim=1)
 
                 # convert frames to range 0 to 1 again
-                if not done:
+                if not done1 and not done2:
                     next_state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
                 else:
                     next_state = None
 
                 # Store transition
                 self.replay.pushFrame(last_k_frames[self.num_stored_frames - 1].cpu())
-                self.replay.pushTransition((self.replay.getCurrentIndex()-1)%self.replay.capacity, action, reward, done)
+                self.replay.pushTransition((self.replay.getCurrentIndex()-1)%self.replay.capacity,
+                                            action, reward, done1 or done2)
 
                 #	only optimize each kth step
                 if self.steps%self.optimize_each_k == 0:
-                    loss = self.optimize(net_updates)
-
-                    # Logging
-                    loss_history.append(loss)
-                    #q_history.append(q_value)
-                    #exp_q_history.append(exp_q_value)
-
+                    self.optimize(net_updates)
                     net_updates += 1
 
                 # set current state to next state to select next action
@@ -396,54 +446,87 @@ class Agent(object):
                     state = state.cuda()
 
                 # plays episode until there are no more lives left ( == done)
-                if done:
+                if done1 or done2:
                     break;
 
             # Save rewards
+            reward_history_game1.append(total_reward_game1)
+            reward_history_game2.append(total_reward_game2)
             reward_history.append(total_reward)
+            reward_clamped_history_game1.append(total_reward_clamped_game1)
+            reward_clamped_history_game2.append(total_reward_clamped_game2)
             reward_clamped_history.append(total_reward_clamped)
 
             print('Episode: {:6} |  '.format(i_episode),
                   'steps {:8} |  '.format(self.steps),
-                  'loss: {:.2E} |  '.format(loss if loss else 0),
-                  'score: ({:4}/{:4}) |  '.format(total_reward_clamped,total_reward),
-                  'best score: ({:4}/{:4}) |  '.format(best_score_clamped,best_score),
+                  'score total: ({:4}/{:4}) |  '.format(total_reward_clamped,total_reward),
+                  'score game1: ({:4}/{:4}) |  '.format(total_reward_clamped_game1,total_reward_game1),
+                  'score game2: ({:4}/{:4}) |  '.format(total_reward_clamped_game2,total_reward_game2),
+                  'best score total: ({:4}/{:4}) |  '.format(best_score_clamped,best_score),
+                  'best score total: ({:4}/{:4}) |  '.format(best_score_clamped,best_score),
+                  'best score total: ({:4}/{:4}) |  '.format(best_score_clamped,best_score),
                   'replay size: {:7}'.format(len(self.replay)))
 
+            avg_score_clamped_game1 += total_reward_clamped_game1
+            avg_score_clamped_game2 += total_reward_clamped_game2
             avg_score_clamped += total_reward_clamped
+            avg_score_game1 += total_reward_game1
+            avg_score_game2 += total_reward_game2
             avg_score += total_reward
+
             if total_reward_clamped > best_score_clamped:
                 best_score_clamped = total_reward_clamped
             if total_reward > best_score:
                 best_score = total_reward
 
             if i_episode % log_avg_episodes == 0 and i_episode!=0:
+                avg_score_clamped_game1 /= log_avg_episodes
+                avg_score_clamped_game2 /= log_avg_episodes
                 avg_score_clamped /= log_avg_episodes
+                avg_score_game1 /= log_avg_episodes
+                avg_score_game2 /= log_avg_episodes
                 avg_score /= log_avg_episodes
 
                 print('----------------------------------------------------------------'
                       '-----------------------------------------------------------------',
                       '\nLogging to file: \nEpisode: {:6}   '.format(i_episode),
                       'steps: {:8}   '.format(self.steps),
-                      'avg on last {:4} games ({:6.1f}/{:6.1f})   '.format(log_avg_episodes, avg_score_clamped,avg_score),
-                      'best score: ({:4}/{:4})'.format(best_score_clamped, best_score),
+                      'avg on last {:4} games:'.format(log_avg_episodes) +
+                     'total ({:6.1f}/{:6.1f}) |  '.format(avg_score_clamped,avg_score) +
+                     'game1 ({:6.1f}/{:6.1f}) |  '.format(avg_score_clamped_game1,avg_score_game1) +
+                     'game2 ({:6.1f}/{:6.1f}) |  '.format(avg_score_clamped_game2,avg_score_game2) +
+                     'best score: ({:4}/{:4})'.format(best_score_clamped, best_score),
                       '\n---------------------------------------------------------------'
                       '------------------------------------------------------------------')
                 # Logfile
                 with open(logfile, 'a') as fp:
                     fp.write('Episode: {:6} |  '.format(i_episode) +
                              'steps: {:8} |  '.format(self.steps) +
-                             'avg on last {:4} games ({:6.1f}/{:6.1f}) |  '.format(log_avg_episodes, avg_score_clamped,avg_score) +
+                             'avg on last {:4} games:'.format(log_avg_episodes) +
+                             'total ({:6.1f}/{:6.1f}) |  '.format(avg_score_clamped,avg_score) +
+                             'game1 ({:6.1f}/{:6.1f}) |  '.format(avg_score_clamped_game1,avg_score_game1) +
+                             'game2 ({:6.1f}/{:6.1f}) |  '.format(avg_score_clamped_game2,avg_score_game2) +
                              'best score: ({:4}/{:4})\n'.format(best_score_clamped, best_score))
-                # Dump loss & reward
-                with open(loss_file, 'wb') as fp:
-                    pickle.dump(loss_history, fp)
+                # Dump reward
+                with open(reward_file_game1, 'wb') as fp:
+                    pickle.dump(reward_history_game1, fp)
+                with open(reward_file_game2, 'wb') as fp:
+                    pickle.dump(reward_history_game2, fp)
                 with open(reward_file, 'wb') as fp:
                     pickle.dump(reward_history, fp)
+
+                with open(reward_clamped_file_game1, 'wb') as fp:
+                    pickle.dump(reward_clamped_history_game1, fp)
+                with open(reward_clamped_file_game2, 'wb') as fp:
+                    pickle.dump(reward_clamped_history_game2, fp)
                 with open(reward_clamped_file, 'wb') as fp:
                     pickle.dump(reward_clamped_history, fp)
 
+                avg_score_clamped_game1 = 0
+                avg_score_clamped_game2 = 0
                 avg_score_clamped = 0
+                avg_score_game1 = 0
+                avg_score_game2 = 0
                 avg_score = 0
 
             if i_episode % self.save_net_each_k_episodes == 0:
