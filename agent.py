@@ -118,7 +118,7 @@ class Agent(object):
         self.steps = 0
 
         # Save net
-        self.save_net_each_k_episodes = 500
+        self.save_net_each_k_episodes = 25
 
 
     def select_action(self, observation, mode='train'):
@@ -306,8 +306,8 @@ class Agent(object):
             self.env2.game.render(mode='human')
 
             # perform selected action on game
-            screen1, reward1, done1, info1 = self.env1.step(action1)
-            screen2, reward2, done2, info2 = self.env2.step(action2)
+            screen1, reward1, done1, info1 = self.env1.step(action1, mode='play')
+            screen2, reward2, done2, info2 = self.env2.step(action2, mode='play')
 
             # Logging
             total_reward_game1 += int(reward1)
@@ -324,8 +324,8 @@ class Agent(object):
 
             # Merged game over indicator
             done = done1 or done2
-        print('Final score (game1):', total_reward_game1)
-        print('Final score (game2):', total_reward_game2)
+        print('Final score (game 1):', total_reward_game1)
+        print('Final score (game 2):', total_reward_game2)
         print('Final score (total):', total_reward)
         self.env1.game.close()
         self.env2.game.close()
@@ -390,7 +390,9 @@ class Agent(object):
                      '--------+-----------+----------------------+------------' +
                      '----------+----------------------+--------------------\n')
 
-        print('Started training...\nLogging to {}\n'.format(sub_dir))
+        print('Started training...\nLogging to {}\n'.format(sub_dir) +
+              'Episode | Steps     |   score total        |   score game 1       |   ' +
+              'score game 2       | best score total')
 
         for i_episode in range(1,num_episodes):
             # reset game at the start of each episode
@@ -535,8 +537,8 @@ class Agent(object):
                       '\nLogging to file...\n\n'
                       '--------+-----------+----------------------+------------' +
                       '----------+----------------------+--------------------\n' +
-                      'Episode | Steps     |   score total        |   score game 1       | ' +
-                      '  score game 2       | best score total')
+                      'Episode | Steps     |   score total        |   score game 1       |   ' +
+                      'score game 2       | best score total')
                 # Logfile
                 with open(logfile, 'a') as fp:
                     fp.write('{:7} | '.format(i_episode) +
@@ -570,7 +572,7 @@ class Agent(object):
             if i_episode % self.save_net_each_k_episodes == 0:
                 with open(logfile, 'a') as fp:
                     fp.write('Saved model at episode ' + str(i_episode) + '...\n')
-                self.target_net.save(sub_dir + self.game + '-' + str(i_episode) + '_episodes.model')
+                self.target_net.save(sub_dir + str(i_episode) + '_episodes.model')
 
         print('Training done!')
-        self.target_net.save(sub_dir + self.game + '.model')
+        self.target_net.save(sub_dir + 'final.model')

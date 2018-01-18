@@ -150,7 +150,7 @@ class Environment(object):
         plt.show()
 
 
-    def step(self, action: int):
+    def step(self, action: int, mode='train'):
         """
         Executes a step in the environment
 
@@ -165,7 +165,7 @@ class Environment(object):
         observation, reward, done, info = self.game.step(action)
         lives_after = self.get_lives()
         observation = self.preprocess(observation)
-        if lives_before>lives_after:
+        if lives_before>lives_after and mode!='play':
             reward = -1.0
         return observation, reward, done, info
 
