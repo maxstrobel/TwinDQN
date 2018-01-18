@@ -73,11 +73,9 @@ class Agent(object):
 
         # Neural net
         self.net = DOUBLEDQN(channels_in = state_buffer_size,
-           num_actions_first = self.env1.get_number_of_actions(),
-           num_actions_second = self.env2.get_number_of_actions())
+                             num_actions = self.env2.get_number_of_actions())
         self.target_net = DOUBLEDQN(channels_in = state_buffer_size,
-                       num_actions_first = self.env1.get_number_of_actions(),
-                       num_actions_second = self.env2.get_number_of_actions())
+                                    num_actions = self.env2.get_number_of_actions())
 
         # Cuda
         self.use_cuda = torch.cuda.is_available()
@@ -172,8 +170,36 @@ class Agent(object):
         return action
 
     def map_action(self, action):
-        
-        pass
+        # Map SpaceInvaders on Breakout
+        if self.game1=='Breakout-v0' and self.game2=='SpaceInvaders-v0':
+            if action>3: # shoot+right/left --> right/left
+                return action-2
+
+        # Map Assault on SpaceInvaders
+        if self.game1=='SpaceInvaders-v0' and self.game2=='Assault-v0':
+            if action!=0: # all actions except 2nd idle
+                return action-1
+
+        # Map Phoenix on SpaceInvaders
+        if self.game1=='SpaceInvaders-v0' and self.game2=='Phoenix-v0':
+            if action==4: # shield --> idle
+                return 0
+            if action==7: # shield+shot --> shot
+                return 1
+            if action>4: # shoot+right/left --> shoot+right/left
+                return action-1
+
+        # Map Phoenix on Assault
+        if self.game1=='Assault-v0' and self.game2=='Phoenix-v0':
+            if action==4: # shield --> idle
+                return 0
+            if action==7: # shield+shot --> shot
+                return 2
+            if 1<= action and action<=3: # shot/right/left --> shot/right/left
+                return action+1
+
+        # No mapping necessary
+        return action
 
     def optimize(self, net_updates):
         """
@@ -271,9 +297,9 @@ class Agent(object):
         state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
         while not done:
-            action = self.select_action(state, mode='play')
+            action = self.select_action(state, mode='play')[0,0]
             action1 = self.map_action(action)
-            action2 = self.map_action(action)
+            action2 = action
 
             # Render game
             self.env1.game.render(mode='human')
@@ -368,8 +394,8 @@ class Agent(object):
             last_k_frames = []
             for j in range(self.num_stored_frames):
                 last_k_frames.append(None)
-                last_k_frames[j] = torch.cat(gray2pytorch(screen1),
-                                             gray2pytorch(screen2), dim=1)
+                last_k_frames[j] = torch.cat((gray2pytorch(screen1),
+                                              gray2pytorch(screen2)), dim=1)
 
             if i_episode == 1:
                 self.replay.pushFrame(last_k_frames[0].cpu())
@@ -385,17 +411,17 @@ class Agent(object):
             total_reward_game1 = 0
             total_reward_clamped_game1 = self.env1.get_lives()
             total_reward_game2 = 0
-            total_reward_clamped_game2 = self.env1.get_lives()
+            total_reward_clamped_game2 = self.env2.get_lives()
             total_reward = 0
             total_reward_clamped = total_reward_clamped_game1 + total_reward_clamped_game2
 
             # Loop over one game
-            while not done1 and done2:
+            while not done1 and not done2:
                 self.steps +=1
 
-                action = self.select_action(state)
+                action = self.select_action(state)[0,0]
                 action1 = self.map_action(action)
-                action2 = self.map_action(action)
+                action2 = action
 
                 # perform selected action on game
                 screen1, reward1, done1, info1 = self.env1.step(action1)
@@ -419,8 +445,8 @@ class Agent(object):
                 #   save latest frame, discard oldest
                 for j in range(self.num_stored_frames-1):
                     last_k_frames[j] = last_k_frames[j+1]
-                last_k_frames[self.num_stored_frames-1] = torch.cat(gray2pytorch(screen1),
-                                                                    gray2pytorch(screen2), dim=1)
+                last_k_frames[self.num_stored_frames-1] = torch.cat((gray2pytorch(screen1),
+                                                                     gray2pytorch(screen2)), dim=1)
 
                 # convert frames to range 0 to 1 again
                 if not done1 and not done2:
