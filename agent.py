@@ -376,7 +376,7 @@ class Agent(object):
                      'Learning rate:                      {:.2E}\n'.format(self.learning_rate) +
                      'Batch size:                         {:d}\n'.format(self.batch_size) +
                      'Memory size(replay):                {:d}\n'.format(self.mem_size) +
-                     'Pretrained:                         {}'.format(self.pretrained_model) +
+                     'Pretrained:                         {}\n'.format(self.pretrained_model) +
                      'Started training after k frames:    {:d}\n'.format(self.start_train_after) +
                      'Optimized after k frames:           {:d}\n'.format(self.optimize_each_k) +
                      'Target net update after k frame:    {:d}\n\n'.format(self.update_target_net_each_k_steps) +
