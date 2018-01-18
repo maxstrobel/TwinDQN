@@ -3,7 +3,6 @@
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from dqn import DQN
 
 class DOUBLEDQN(nn.Module):
@@ -13,16 +12,17 @@ class DOUBLEDQN(nn.Module):
         # Subnet 1
         subnet1 = self.load_subnet(channels_in=channels_in, pretrained_net=pretrained_subnet1)
         feats_subnet1 = list(subnet1.children())
-        self.subnet1 = nn.Sequential(*feats_subnet1[0:5])
+        self.subnet1 = nn.Sequential(*feats_subnet1[0:9])
 
         # Subnet 2
         subnet2 = self.load_subnet(channels_in=channels_in, pretrained_net=pretrained_subnet2)
         feats_subnet2 = list(subnet2.children())
-        self.subnet2 = nn.Sequential(*feats_subnet2[0:5])
+        self.subnet2 = nn.Sequential(*feats_subnet2[0:9])
 
         # Union net
         self.fc5 = nn.Linear(in_features=1024,
                              out_features=512)
+        self.relu5 = nn.ReLU(True)
         self.fc6 = nn.Linear(in_features=512,
                              out_features=num_actions)
 
@@ -68,8 +68,6 @@ class DOUBLEDQN(nn.Module):
             in2 = torch.cat((in2,inp[2*i+1]),dim = 1)
             in1 = torch.cat((in1,inp[2*i]),dim = 1)
 
-        N, C, H, W = in1.size()
-
         # Subnet 1
         in1 = self.subnet1(in1)
 
@@ -79,7 +77,8 @@ class DOUBLEDQN(nn.Module):
         x = torch.cat((in1,in2),dim = 1)
 
         # Union net
-        x = F.relu(self.fc5(x))
+        x = self.fc5(x)
+        x = self.relu5(x)
         x = self.fc6(x)
 
         return x
