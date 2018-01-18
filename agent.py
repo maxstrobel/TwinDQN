@@ -107,7 +107,7 @@ class Agent(object):
 
         # Fill replay memory before training
         if not self.pretrained_model:
-            self.start_train_after = 50000
+            self.start_train_after = 100000 # DEBUG
         else:
             self.start_train_after = mem_size//2
 
@@ -348,7 +348,7 @@ class Agent(object):
         reward_clamped_file_game1 = sub_dir + 'reward_clamped_game1.pickle'
         reward_clamped_file_game2 = sub_dir + 'reward_clamped_game2.pickle'
         reward_clamped_file = sub_dir + 'reward_clamped.pickle'
-        log_avg_episodes = 50
+        log_avg_episodes = 10 # DEBUG
 
         # Total scores
         best_score = 0
@@ -371,19 +371,26 @@ class Agent(object):
         # Initialize logfile with header
         with open(logfile, 'w') as fp:
             fp.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S') + '\n' +
-                     'Trained game (first):               ' + str(self.game1) + '\n' +
-                     'Trained game (second):              ' + str(self.game2) + '\n' +
-                     'Learning rate:                      ' + str(self.learning_rate) + '\n' +
-                     'Batch size:                         ' + str(self.batch_size) + '\n' +
-                     'Memory size(replay):                ' + str(self.mem_size) + '\n' +
-                     'Pretrained:                         ' + str(self.pretrained_model) + '\n' +
-                     'Started training after k frames:    ' + str(self.start_train_after) + '\n' +
-                     'Optimized after k frames:           ' + str(self.optimize_each_k) + '\n' +
-                     'Target net update after k frame:    ' + str(self.update_target_net_each_k_steps) + '\n\n' +
-                     '------------------------------------------------------' +
-                     '--------------------------------------------------\n')
+                     'Trained game (first):               {}\n'.format(self.game1) +
+                     'Trained game (second):              {}\n'.format(self.game2) +
+                     'Learning rate:                      {:.2E}\n'.format(self.learning_rate) +
+                     'Batch size:                         {:d}\n'.format(self.batch_size) +
+                     'Memory size(replay):                {:d}\n'.format(self.mem_size) +
+                     'Pretrained:                         {}'.format(self.pretrained_model) +
+                     'Started training after k frames:    {:d}\n'.format(self.start_train_after) +
+                     'Optimized after k frames:           {:d}\n'.format(self.optimize_each_k) +
+                     'Target net update after k frame:    {:d}\n\n'.format(self.update_target_net_each_k_steps) +
+                     '--------+-----------+----------------------+------------' +
+                     '----------+----------------------+--------------------\n' +
+                     'Episode | Steps     | ' +
+                     '{:3} games avg total  | '.format(log_avg_episodes) +
+                     '{:3} games avg game1  | '.format(log_avg_episodes) +
+                     '{:3} games avg game2  | '.format(log_avg_episodes) +
+                     'best score total \n' +
+                     '--------+-----------+----------------------+------------' +
+                     '----------+----------------------+--------------------\n')
 
-        print('Started training...\nLogging to', sub_dir)
+        print('Started training...\nLogging to {}\n'.format(sub_dir))
 
         for i_episode in range(1,num_episodes):
             # reset game at the start of each episode
@@ -484,13 +491,13 @@ class Agent(object):
             reward_clamped_history_game2.append(total_reward_clamped_game2)
             reward_clamped_history.append(total_reward_clamped)
 
-            print('Episode: {:6} |  '.format(i_episode),
-                  'steps {:8} |  '.format(self.steps),
-                  'score total: ({:4}/{:4}) |  '.format(total_reward_clamped,total_reward),
-                  'score game1: ({:4}/{:4}) |  '.format(total_reward_clamped_game1,total_reward_game1),
-                  'score game2: ({:4}/{:4}) |  '.format(total_reward_clamped_game2,total_reward_game2),
-                  'best score total: ({:4}/{:4}) |  '.format(best_score_clamped,best_score),
-                  'replay size: {:7}'.format(len(self.replay)))
+
+            print('{:7} | '.format(i_episode) +
+                  '{:9} |     '.format(self.steps) +
+                  '({:6.1f}/{:7.1f}) |     '.format(total_reward_clamped,total_reward) +
+                  '({:6.1f}/{:7.1f}) |     '.format(total_reward_clamped_game1,total_reward_game1) +
+                  '({:6.1f}/{:7.1f}) |  '.format(total_reward_clamped_game2,total_reward_game2) +
+                  '({:6.1f}/{:8.1f})'.format(best_score_clamped, best_score))
 
             avg_score_clamped_game1 += total_reward_clamped_game1
             avg_score_clamped_game2 += total_reward_clamped_game2
@@ -512,26 +519,32 @@ class Agent(object):
                 avg_score_game2 /= log_avg_episodes
                 avg_score /= log_avg_episodes
 
-                print('----------------------------------------------------------------'
-                      '-----------------------------------------------------------------',
-                      '\nLogging to file: \nEpisode: {:6}   '.format(i_episode),
-                      'steps: {:8}   '.format(self.steps),
-                      'avg on last {:4} games:'.format(log_avg_episodes) +
-                     'total ({:6.1f}/{:6.1f}) |  '.format(avg_score_clamped,avg_score) +
-                     'game1 ({:6.1f}/{:6.1f}) |  '.format(avg_score_clamped_game1,avg_score_game1) +
-                     'game2 ({:6.1f}/{:6.1f}) |  '.format(avg_score_clamped_game2,avg_score_game2) +
-                     'best score: ({:4}/{:4})'.format(best_score_clamped, best_score),
-                      '\n---------------------------------------------------------------'
-                      '------------------------------------------------------------------')
+                print('--------+-----------+----------------------+------------' +
+                     '----------+----------------------+--------------------\n' +
+                      'Episode | Steps     | ' +
+                      '{:3} games avg total  | '.format(log_avg_episodes) +
+                      '{:3} games avg game1  | '.format(log_avg_episodes) +
+                      '{:3} games avg game2  | '.format(log_avg_episodes) +
+                      'best score total \n' +
+                      '{:7} | '.format(i_episode) +
+                      '{:9} |     '.format(self.steps) +
+                      '({:6.1f}/{:7.1f}) |     '.format(avg_score_clamped,avg_score) +
+                      '({:6.1f}/{:7.1f}) |     '.format(avg_score_clamped_game1,avg_score_game1) +
+                      '({:6.1f}/{:7.1f}) |  '.format(avg_score_clamped_game2,avg_score_game2) +
+                      '({:6.1f}/{:8.1f})\n'.format(best_score_clamped, best_score) +
+                      '\nLogging to file...\n\n'
+                      '--------+-----------+----------------------+------------' +
+                      '----------+----------------------+--------------------\n' +
+                      'Episode | Steps     |   score total        |   score game 1       | ' +
+                      '  score game 2       | best score total')
                 # Logfile
                 with open(logfile, 'a') as fp:
-                    fp.write('Episode: {:6} |  '.format(i_episode) +
-                             'steps: {:8} |  '.format(self.steps) +
-                             'avg on last {:4} games:'.format(log_avg_episodes) +
-                             'total ({:6.1f}/{:6.1f}) |  '.format(avg_score_clamped,avg_score) +
-                             'game1 ({:6.1f}/{:6.1f}) |  '.format(avg_score_clamped_game1,avg_score_game1) +
-                             'game2 ({:6.1f}/{:6.1f}) |  '.format(avg_score_clamped_game2,avg_score_game2) +
-                             'best score: ({:4}/{:4})\n'.format(best_score_clamped, best_score))
+                    fp.write('{:7} | '.format(i_episode) +
+                             '{:9} |     '.format(self.steps) +
+                             '({:6.1f}/{:7.1f}) |     '.format(avg_score_clamped,avg_score) +
+                             '({:6.1f}/{:7.1f}) |     '.format(avg_score_clamped_game1,avg_score_game1) +
+                             '({:6.1f}/{:7.1f}) |  '.format(avg_score_clamped_game2,avg_score_game2) +
+                             '({:6.1f}/{:8.1f})\n'.format(best_score_clamped, best_score))
                 # Dump reward
                 with open(reward_file_game1, 'wb') as fp:
                     pickle.dump(reward_history_game1, fp)
