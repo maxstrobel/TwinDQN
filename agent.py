@@ -44,22 +44,24 @@ class Agent(object):
     def __init__(self,
                  game1,
                  game2,
-                 mem_size = 1000, #DEBUG
+                 mem_size = 1000000,
                  state_buffer_size = 4,
                  batch_size = 64,
                  learning_rate = 1e-5,
                  pretrained_model = None,
+                 pretrained_subnet1 = False,
+                 pretrained_subnet2 = False,
                  frameskip = 3
                  ):
         """
         Inputs:
-        - game: string to select the game
+        - game 1: string to select the game 1
+        - game 2: string to select the game 2
         - mem_size: int length of the replay memory
         - state_buffer_size: int number of recent frames used as input for neural network
         - batch_size: int
         - learning_rate: float
         - pretrained_model: str path to the model
-        - record: boolean to enable record option
         """
 
         # Namestring
@@ -73,9 +75,13 @@ class Agent(object):
 
         # Neural net
         self.net = DOUBLEDQN(channels_in = state_buffer_size,
-                             num_actions = self.env2.get_number_of_actions())
+                             num_actions = self.env2.get_number_of_actions(),
+                             pretrained_subnet1 = pretrained_subnet1,
+                             pretrained_subnet2 = pretrained_subnet2)
         self.target_net = DOUBLEDQN(channels_in = state_buffer_size,
-                                    num_actions = self.env2.get_number_of_actions())
+                                    num_actions = self.env2.get_number_of_actions(),
+                                    pretrained_subnet1 = pretrained_subnet1,
+                                    pretrained_subnet2 = pretrained_subnet2)
 
         # Cuda
         self.use_cuda = torch.cuda.is_available()
@@ -107,7 +113,7 @@ class Agent(object):
 
         # Fill replay memory before training
         if not self.pretrained_model:
-            self.start_train_after = 100000 # DEBUG
+            self.start_train_after = 50000
         else:
             self.start_train_after = mem_size//2
 
@@ -130,7 +136,7 @@ class Agent(object):
         - observation: np.array with the observation
 
         Returns:
-        action: int
+        - action: int
         """
         # Hyperparameters
         EPSILON_START = 1
@@ -170,6 +176,15 @@ class Agent(object):
         return action
 
     def map_action(self, action):
+        """
+        Maps action from game with more actions
+        to game with less actions
+        
+        Inputs:
+        - action: int
+        Returns:
+        - action: int
+        """
         # Map SpaceInvaders on Breakout
         if self.game1=='Breakout-v0' and self.game2=='SpaceInvaders-v0':
             if action>3: # shoot+right/left --> right/left
@@ -348,7 +363,7 @@ class Agent(object):
         reward_clamped_file_game1 = sub_dir + 'reward_clamped_game1.pickle'
         reward_clamped_file_game2 = sub_dir + 'reward_clamped_game2.pickle'
         reward_clamped_file = sub_dir + 'reward_clamped.pickle'
-        log_avg_episodes = 10 # DEBUG
+        log_avg_episodes = 50
 
         # Total scores
         best_score = 0

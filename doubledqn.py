@@ -4,49 +4,54 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from dqn import DQN
 
 class DOUBLEDQN(nn.Module):
-    def __init__(self, channels_in, num_actions):
+    def __init__(self, channels_in, num_actions, pretrained_subnet1=False, pretrained_subnet2=False):
         super(DOUBLEDQN, self).__init__()
 
         # Subnet 1
-        self.net1_conv1 = nn.Conv2d(in_channels=channels_in,
-                          out_channels=32,
-                          kernel_size=8,
-                          stride=4)
-        self.net1_conv2 = nn.Conv2d(in_channels=32,
-                          out_channels=64,
-                          kernel_size=4,
-                          stride=2)
-        self.net1_conv3 = nn.Conv2d(in_channels=64,
-                          out_channels=64,
-                          kernel_size=3,
-                          stride=1)
-        self.net1_fc4 = nn.Linear(in_features=64*7*7,
-                          out_features=512)
+        subnet1 = self.load_subnet(channels_in=channels_in, pretrained_net=pretrained_subnet1)
+        feats_subnet1 = list(subnet1.children())
+        self.subnet1 = nn.Sequential(*feats_subnet1[0:5])
 
-        # Subnet2
-        self.net2_conv1 = nn.Conv2d(in_channels=channels_in,
-                          out_channels=32,
-                          kernel_size=8,
-                          stride=4)
-        self.net2_conv2 = nn.Conv2d(in_channels=32,
-                          out_channels=64,
-                          kernel_size=4,
-                          stride=2)
-        self.net2_conv3 = nn.Conv2d(in_channels=64,
-                          out_channels=64,
-                          kernel_size=3,
-                          stride=1)
-        self.net2_fc4 = nn.Linear(in_features=64*7*7,
-                          out_features=512)
+        # Subnet 2
+        subnet2 = self.load_subnet(channels_in=channels_in, pretrained_net=pretrained_subnet2)
+        feats_subnet2 = list(subnet2.children())
+        self.subnet2 = nn.Sequential(*feats_subnet2[0:5])
 
         # Union net
         self.fc5 = nn.Linear(in_features=1024,
-                          out_features=512)
+                             out_features=512)
         self.fc6 = nn.Linear(in_features=512,
-                          out_features=num_actions)
+                             out_features=num_actions)
+
+    def load_subnet(self, channels_in, pretrained_net=None):
+        """
+        Loads subnet
+        If there is a pretrained model, its parameters are used
+
+        Inputs:
+        - channels_in: int
+
+        Returns:
+        - subnet
+        """
+        subnet = DQN(channels_in=channels_in, num_actions=1)
+        if pretrained_net:
+            pretrained_dict = torch.load(pretrained_net,
+                                          map_location=lambda storage,
+                                          loc: storage)
+            subnet_dict = subnet.state_dict()
+            # 1. filter out unnecessary keys
+            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in subnet_dict
+                               and v.size() == subnet_dict[k].size()}
+            # 2. overwrite entries in the existing state dict
+            subnet_dict.update(pretrained_dict) 
+            # 3. load the new state dict
+            subnet.load_state_dict(subnet_dict)
+
+        return subnet
 
     def forward(self, x):
         """
@@ -66,18 +71,10 @@ class DOUBLEDQN(nn.Module):
         N, C, H, W = in1.size()
 
         # Subnet 1
-        in1 = F.relu(self.net1_conv1(in1))
-        in1 = F.relu(self.net1_conv2(in1))
-        in1 = F.relu(self.net1_conv3(in1))
-        in1 = in1.view(N,-1) # change the view from 2d to 1d
-        in1 = F.relu(self.net1_fc4(in1))
+        in1 = self.subnet1(in1)
 
-        # Subnet 1
-        in2 = F.relu(self.net2_conv1(in2))
-        in2 = F.relu(self.net2_conv2(in2))
-        in2 = F.relu(self.net2_conv3(in2))
-        in2 = in2.view(N,-1) # change the view from 2d to 1d
-        in2 = F.relu(self.net2_fc4(in2))
+        # Subnet 2
+        in2 = self.subnet2(in2)
 
         x = torch.cat((in1,in2),dim = 1)
 
@@ -117,4 +114,4 @@ class DOUBLEDQN(nn.Module):
         - path: path string
         """
         print('Loading model... %s' % path)
-        self.load_state_dict(torch.load(path))
+        self.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage))

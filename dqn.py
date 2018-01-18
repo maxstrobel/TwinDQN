@@ -22,6 +22,7 @@ class DQN(nn.Module):
                           out_channels=64,
                           kernel_size=3,
                           stride=1)
+        self.flat = Flatten()
         self.fc4 = nn.Linear(in_features=64*7*7,
                           out_features=512)
         self.fc5 = nn.Linear(in_features=512,
@@ -41,7 +42,7 @@ class DQN(nn.Module):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
-        x = x.view(N,-1) # change the view from 2d to 1d
+        x = self.flat(x) # change the view from 2d to 1d
         x = F.relu(self.fc4(x))
         x = self.fc5(x)
 
@@ -77,4 +78,8 @@ class DQN(nn.Module):
         - path: path string
         """
         print('Loading model... %s' % path)
-        self.load_state_dict(torch.load(path))
+        self.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage))
+
+class Flatten(nn.Module):
+    def forward(self, input):
+        return input.view(input.size(0), -1)
