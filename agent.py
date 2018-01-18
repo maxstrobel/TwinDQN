@@ -44,7 +44,7 @@ class Agent(object):
     def __init__(self,
                  game1,
                  game2,
-                 mem_size = 800000,
+                 mem_size = 1000, #DEBUG
                  state_buffer_size = 4,
                  batch_size = 64,
                  learning_rate = 1e-5,
@@ -408,20 +408,21 @@ class Agent(object):
             done2 = False
 
             # reset score with initial lives, because every lost live adds -1
-            total_reward_game1 = 0
+            total_reward_game1 = self.env1.get_lives()
             total_reward_clamped_game1 = self.env1.get_lives()
-            total_reward_game2 = 0
+            total_reward_game2 = self.env2.get_lives()
             total_reward_clamped_game2 = self.env2.get_lives()
-            total_reward = 0
+            # total scores for both games
+            total_reward = total_reward_game1 + total_reward_game2
             total_reward_clamped = total_reward_clamped_game1 + total_reward_clamped_game2
 
             # Loop over one game
             while not done1 and not done2:
                 self.steps +=1
 
-                action = self.select_action(state)[0,0]
-                action1 = self.map_action(action)
-                action2 = action
+                action = self.select_action(state)
+                action1 = self.map_action(action[0,0])
+                action2 = action[0,0]
 
                 # perform selected action on game
                 screen1, reward1, done1, info1 = self.env1.step(action1)
@@ -488,8 +489,6 @@ class Agent(object):
                   'score total: ({:4}/{:4}) |  '.format(total_reward_clamped,total_reward),
                   'score game1: ({:4}/{:4}) |  '.format(total_reward_clamped_game1,total_reward_game1),
                   'score game2: ({:4}/{:4}) |  '.format(total_reward_clamped_game2,total_reward_game2),
-                  'best score total: ({:4}/{:4}) |  '.format(best_score_clamped,best_score),
-                  'best score total: ({:4}/{:4}) |  '.format(best_score_clamped,best_score),
                   'best score total: ({:4}/{:4}) |  '.format(best_score_clamped,best_score),
                   'replay size: {:7}'.format(len(self.replay)))
 
