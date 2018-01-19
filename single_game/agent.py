@@ -95,6 +95,7 @@ class Agent(object):
         self.batch_size = batch_size
         self.optimize_each_k = 1
         self.update_target_net_each_k_steps = 10000
+        self.noops_count = 0
 
         # Replay Memory (Long term memory)
         self.replay = ReplayMemory(capacity=mem_size, num_history_frames=state_buffer_size)
@@ -259,7 +260,7 @@ class Agent(object):
             # Render game
             self.env.game.render(mode='human')
 
-            screen, reward, done, info = self.env.step(action[0,0])
+            screen, reward, done, info = self.env.step(action[0,0], mode='play')
             score += reward
 
             #   save latest frame, discard oldest

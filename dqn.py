@@ -3,7 +3,6 @@
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class DQN(nn.Module):
@@ -14,16 +13,21 @@ class DQN(nn.Module):
                           out_channels=32,
                           kernel_size=8,
                           stride=4)
+        self.relu1 = nn.ReLU(True)
         self.conv2 = nn.Conv2d(in_channels=32,
                           out_channels=64,
                           kernel_size=4,
                           stride=2)
+        self.relu2 = nn.ReLU(True)
         self.conv3 = nn.Conv2d(in_channels=64,
                           out_channels=64,
                           kernel_size=3,
                           stride=1)
+        self.relu3 = nn.ReLU(True)
+        self.flat = Flatten()
         self.fc4 = nn.Linear(in_features=64*7*7,
                           out_features=512)
+        self.relu4 = nn.ReLU(True)
         self.fc5 = nn.Linear(in_features=512,
                           out_features=num_actions)
 
@@ -36,21 +40,17 @@ class DQN(nn.Module):
         Inputs:
         - x: PyTorch input Variable
         """
-        N, C, H, W = x.size()
-        #print('forward',H,W)
-        x = F.relu(self.conv1(x))
-        #print('conv1',x.size())
-        x = F.relu(self.conv2(x))
-        #print('conv2',x.size())
-        x = F.relu(self.conv3(x))
-        #print('conv3',x.size())
-        x = x.view(N,-1) # change the view from 2d to 1d
-        #print('conv3_flat', x.size())
-        x = F.relu(self.fc4(x))
-        #print('fc1',x.size())
-        x = self.fc5(x)
-        #print('score',x.size())
 
+        x = self.conv1(x)
+        x = self.relu1(x)
+        x = self.conv2(x)
+        x = self.relu2(x)
+        x = self.conv3(x)
+        x = self.relu3(x)
+        x = self.flat(x) # change the view from 2d to 1d
+        x = self.fc4(x)
+        x = self.relu4(x)
+        x = self.fc5(x)
 
         return x
 
@@ -84,4 +84,8 @@ class DQN(nn.Module):
         - path: path string
         """
         print('Loading model... %s' % path)
-        self.load_state_dict(torch.load(path))
+        self.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage))
+
+class Flatten(nn.Module):
+    def forward(self, input):
+        return input.view(input.size(0), -1)
