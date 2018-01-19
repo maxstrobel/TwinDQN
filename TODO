@@ -9,9 +9,13 @@ Max W:
   - check other games: BeamRider, Phoenix, Skiing, Assault
 Max S:
   - Optimizing hyperparameter (learning rate, replay size, batch size)
-  - Visualizing (weights, loss, reward, games) 
-  
+  - image input -> plot output of conv layer
   
 Unassigned:
-- check: save model/update target @ best score
-- check: neg rewards
+  - make two games more generic: function for mapping; adapt main
+  - check: save model/update target @ best score
+
+Done:
+  - Visualizing (weights, loss, reward, games)
+  - add functions for: max noops 30 / action after live lost
+  - check: neg rewards
