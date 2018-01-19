@@ -176,14 +176,17 @@ class Environment(object):
             # max over 2 frames -> remove flickering
             observation0, reward, done, info = self.game.step(action)
             observation1, reward, done, info = self.game.step(action)
-            observation = np.maximum(observation0,observation1)
 
             lives_after = self.get_lives()
             if lives_before>lives_after:
                 reward = -1.0
         elif mode=='play':
-            observation, reward, done, info = self.game.step(action)
+            observation0, reward, done, info = self.game.step(action)
+            self.game.render(mode='human')
+            observation1, reward, done, info = self.game.step(action)
+            self.game.render(mode='human')
 
+        observation = np.maximum(observation0,observation1)
         self.current_observation = observation
         observation = self.preprocess(observation)
         return observation, reward, done, info

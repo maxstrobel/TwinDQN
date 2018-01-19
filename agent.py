@@ -318,10 +318,6 @@ class Agent(object):
             action1 = self.map_action(action)
             action2 = action
 
-            # Render game
-            self.env1.game.render(mode='human')
-            self.env2.game.render(mode='human')
-
             # perform selected action on game
             screen1, reward1, done1, info1 = self.env1.step(action1, mode='play')
             screen2, reward2, done2, info2 = self.env2.step(action2, mode='play')
