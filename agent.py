@@ -74,6 +74,8 @@ class Agent(object):
 
 
         # Neural net
+        self.pretrained_subnet1 = pretrained_subnet1
+        self.pretrained_subnet2 = pretrained_subnet2
         self.net = DOUBLEDQN(channels_in = state_buffer_size,
                              num_actions = self.env2.get_number_of_actions(),
                              pretrained_subnet1 = pretrained_subnet1,
@@ -124,7 +126,7 @@ class Agent(object):
         self.steps = 0
 
         # Save net
-        self.save_net_each_k_episodes = 25
+        self.save_net_each_k_episodes = 500
 
 
     def select_action(self, observation, mode='train'):
@@ -392,6 +394,8 @@ class Agent(object):
                      'Batch size:                         {:d}\n'.format(self.batch_size) +
                      'Memory size(replay):                {:d}\n'.format(self.mem_size) +
                      'Pretrained:                         {}\n'.format(self.pretrained_model) +
+                     'Pretrained subnet 1:                {}\n'.format(self.pretrained_subnet1) +
+                     'Pretrained subnet 2:                {}\n'.format(self.pretrained_subnet2) +
                      'Started training after k frames:    {:d}\n'.format(self.start_train_after) +
                      'Optimized after k frames:           {:d}\n'.format(self.optimize_each_k) +
                      'Target net update after k frame:    {:d}\n\n'.format(self.update_target_net_each_k_steps) +
@@ -508,14 +512,7 @@ class Agent(object):
             reward_clamped_history_game2.append(total_reward_clamped_game2)
             reward_clamped_history.append(total_reward_clamped)
 
-
-            print('{:7} | '.format(i_episode) +
-                  '{:9} |     '.format(self.steps) +
-                  '({:6.1f}/{:7.1f}) |     '.format(total_reward_clamped,total_reward) +
-                  '({:6.1f}/{:7.1f}) |     '.format(total_reward_clamped_game1,total_reward_game1) +
-                  '({:6.1f}/{:7.1f}) |  '.format(total_reward_clamped_game2,total_reward_game2) +
-                  '({:6.1f}/{:8.1f})'.format(best_score_clamped, best_score))
-
+            # Sum up for averages
             avg_score_clamped_game1 += total_reward_clamped_game1
             avg_score_clamped_game2 += total_reward_clamped_game2
             avg_score_clamped += total_reward_clamped
@@ -527,6 +524,13 @@ class Agent(object):
                 best_score_clamped = total_reward_clamped
             if total_reward > best_score:
                 best_score = total_reward
+
+            print('{:7} | '.format(i_episode) +
+                  '{:9} |     '.format(self.steps) +
+                  '({:6.1f}/{:7.1f}) |     '.format(total_reward_clamped,total_reward) +
+                  '({:6.1f}/{:7.1f}) |     '.format(total_reward_clamped_game1,total_reward_game1) +
+                  '({:6.1f}/{:7.1f}) |  '.format(total_reward_clamped_game2,total_reward_game2) +
+                  '({:6.1f}/{:8.1f})'.format(best_score_clamped, best_score))
 
             if i_episode % log_avg_episodes == 0 and i_episode!=0:
                 avg_score_clamped_game1 /= log_avg_episodes
