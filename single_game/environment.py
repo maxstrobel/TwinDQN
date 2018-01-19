@@ -19,13 +19,17 @@ class Environment(object):
         """
         # Setup game
         self.game = gym.make(game)
-        self.game.unwrapped.frameskip = frameskip
-        self.game.reset()
+        self.game.unwrapped.frameskip = 1 # implemented own frameskip
+        observation = self.game.reset()
+
+        # Store current observation for plots
+        self.current_observation = observation
 
         # Preprocessing parameter
         self.h1, self.h2, self.w1, self.w2 = inner_dimensions
 
         # Environment parameter
+        self.frameskip = frameskip
         self.width = width
         self.height = height
 
@@ -115,6 +119,7 @@ class Environment(object):
         - observation: np.array with initial observation (preprocessed)
         """
         observation = self.game.reset()
+        self.current_observation = observation
         observation = self.preprocess(observation)
         return observation
 
@@ -135,7 +140,7 @@ class Environment(object):
         """
         Plots the current observation
         """
-        observation = self.game.render(mode='rgb_array')
+        observation = self.current_observation
         processed_observation = self.preprocess(observation)
         plt.figure()
 
@@ -150,7 +155,7 @@ class Environment(object):
         plt.show()
 
 
-    def step(self, action: int):
+    def step(self, action: int, mode='train'):
         """
         Executes a step in the environment
 
@@ -162,10 +167,20 @@ class Environment(object):
         - info: dict with the current number of lives
         """
         lives_before = self.get_lives()
-        observation, reward, done, info = self.game.step(action)
+
+        # Frameskip (-2 frames for removement of flickering)
+        for i in range(self.frameskip-2):
+            self.game.step(action)
+
+        # max over 2 frames -> remove flickering
+        observation0, reward, done, info = self.game.step(action)
+        observation1, reward, done, info = self.game.step(action)
+        observation = np.maximum(observation0,observation1)
+        self.current_observation = observation
+
         lives_after = self.get_lives()
         observation = self.preprocess(observation)
-        if lives_before>lives_after:
+        if lives_before>lives_after and mode!='play':
             reward = -1.0
         return observation, reward, done, info
 

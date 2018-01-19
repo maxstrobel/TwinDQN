@@ -48,7 +48,7 @@ class Agent(object):
                  batch_size = 64,
                  learning_rate = 1e-5,
                  pretrained_model = None,
-                 frameskip = 1
+                 frameskip = 4
                  ):
         """
         Inputs:
