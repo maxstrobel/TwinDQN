@@ -166,22 +166,26 @@ class Environment(object):
         - done: boolean to signal end of game
         - info: dict with the current number of lives
         """
-        lives_before = self.get_lives()
+        if mode=='train':
+            lives_before = self.get_lives()
 
-        # Frameskip (-2 frames for removement of flickering)
-        for i in range(self.frameskip-2):
-            self.game.step(action)
+            # Frameskip (-2 frames for removement of flickering)
+            for i in range(self.frameskip-2):
+                self.game.step(action)
 
-        # max over 2 frames -> remove flickering
-        observation0, reward, done, info = self.game.step(action)
-        observation1, reward, done, info = self.game.step(action)
-        observation = np.maximum(observation0,observation1)
+            # max over 2 frames -> remove flickering
+            observation0, reward, done, info = self.game.step(action)
+            observation1, reward, done, info = self.game.step(action)
+            observation = np.maximum(observation0,observation1)
+
+            lives_after = self.get_lives()
+            if lives_before>lives_after:
+                reward = -1.0
+        elif mode=='play':
+            observation, reward, done, info = self.game.step(action)
+
         self.current_observation = observation
-
-        lives_after = self.get_lives()
         observation = self.preprocess(observation)
-        if lives_before>lives_after and mode!='play':
-            reward = -1.0
         return observation, reward, done, info
 
 
