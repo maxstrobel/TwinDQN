@@ -257,9 +257,6 @@ class Agent(object):
         while not done:
             action = self.select_action(state, mode='play')
 
-            # Render game
-            self.env.game.render(mode='human')
-
             screen, reward, done, info = self.env.step(action[0,0], mode='play')
             score += reward
 
