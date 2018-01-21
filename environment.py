@@ -178,8 +178,8 @@ class Environment(object):
             observation1, reward, done, info = self.game.step(action)
 
             lives_after = self.get_lives()
-            #if lives_before>lives_after:
-             #   reward = -1.0
+            if lives_before>lives_after:
+                reward = -1.0
         elif mode=='play':
             observation0, reward, done, info = self.game.step(action)
             self.game.render(mode='human')
