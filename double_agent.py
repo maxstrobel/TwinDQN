@@ -44,14 +44,14 @@ class DoubleAgent(object):
     def __init__(self,
                  game1,
                  game2,
-                 mem_size = 1000000,
+                 mem_size = 1000,
                  state_buffer_size = 4,
                  batch_size = 64,
                  learning_rate = 1e-5,
                  pretrained_model = None,
                  pretrained_subnet1 = False,
                  pretrained_subnet2 = False,
-                 frameskip = 3
+                 frameskip = 1
                  ):
         """
         Inputs:
@@ -432,10 +432,10 @@ class DoubleAgent(object):
             done2 = False
 
             # reset score with initial lives, because every lost live adds -1
-            total_reward_game1 = self.env1.get_lives()
-            total_reward_clamped_game1 = self.env1.get_lives()
-            total_reward_game2 = self.env2.get_lives()
-            total_reward_clamped_game2 = self.env2.get_lives()
+            total_reward_game1 = 0#self.env1.get_lives()
+            total_reward_clamped_game1 = 0#self.env1.get_lives()
+            total_reward_game2 = 0#self.env2.get_lives()
+            total_reward_clamped_game2 = 0#self.env2.get_lives()
             # total scores for both games
             total_reward = total_reward_game1 + total_reward_game2
             total_reward_clamped = total_reward_clamped_game1 + total_reward_clamped_game2
@@ -444,9 +444,11 @@ class DoubleAgent(object):
             while not done1 and not done2:
                 self.steps +=1
 
-                action = self.select_action(state)
-                action1 = self.map_action(action[0,0])
-                action2 = action[0,0]
+                #action = self.select_action(state)
+                #action1 = self.map_action(action[0,0])
+                #action2 = action[0,0]
+                action2 = self.env2.sample_action()
+                action1 = self.map_action(action2)
 
                 # perform selected action on game
                 screen1, reward1, done1, info1 = self.env1.step(action1)
@@ -482,11 +484,11 @@ class DoubleAgent(object):
                 # Store transition
                 self.replay.pushFrame(last_k_frames[self.num_stored_frames - 1].cpu())
                 self.replay.pushTransition((self.replay.getCurrentIndex()-1)%self.replay.capacity,
-                                            action, reward, done1 or done2)
+                                            action1, reward, done1 or done2)
 
                 #	only optimize each kth step
                 if self.steps%self.optimize_each_k == 0:
-                    self.optimize(net_updates)
+                    #self.optimize(net_updates)
                     net_updates += 1
 
                 # set current state to next state to select next action
@@ -529,12 +531,12 @@ class DoubleAgent(object):
                   '({:6.1f}/{:8.1f})'.format(best_score_clamped, best_score))
 
             if i_episode % log_avg_episodes == 0 and i_episode!=0:
-                avg_score_clamped_game1 /= log_avg_episodes
-                avg_score_clamped_game2 /= log_avg_episodes
-                avg_score_clamped /= log_avg_episodes
-                avg_score_game1 /= log_avg_episodes
-                avg_score_game2 /= log_avg_episodes
-                avg_score /= log_avg_episodes
+                avg_score_clamped_game1 /= i_episode
+                avg_score_clamped_game2 /= i_episode
+                avg_score_clamped /= i_episode
+                avg_score_game1 /= i_episode
+                avg_score_game2 /= i_episode
+                avg_score /= i_episode
 
                 print('--------+-----------+----------------------+------------' +
                      '----------+----------------------+--------------------\n' +
@@ -577,12 +579,12 @@ class DoubleAgent(object):
                 with open(reward_clamped_file, 'wb') as fp:
                     pickle.dump(reward_clamped_history, fp)
 
-                avg_score_clamped_game1 = 0
-                avg_score_clamped_game2 = 0
-                avg_score_clamped = 0
-                avg_score_game1 = 0
-                avg_score_game2 = 0
-                avg_score = 0
+                avg_score_clamped_game1 *= i_episode
+                avg_score_clamped_game2 *= i_episode
+                avg_score_clamped *= i_episode
+                avg_score_game1 *= i_episode
+                avg_score_game2 *= i_episode
+                avg_score *= i_episode
 
             if i_episode % self.save_net_each_k_episodes == 0:
                 with open(logfile, 'a') as fp:
