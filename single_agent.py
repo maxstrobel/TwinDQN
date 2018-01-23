@@ -339,7 +339,7 @@ class SingleAgent(object):
 
             done = False # games end indicator variable
             # reset score with initial lives, because every lost live adds -1
-            total_reward = self.env.get_lives()
+            total_reward = 0
             total_reward_clamped = self.env.get_lives()
 
             # Loop over one game

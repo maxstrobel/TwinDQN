@@ -440,9 +440,9 @@ class DoubleAgent(object):
             done2 = False
 
             # reset score with initial lives, because every lost live adds -1
-            total_reward_game1 = self.env1.get_lives()
+            total_reward_game1 = 0
             total_reward_clamped_game1 = self.env1.get_lives()
-            total_reward_game2 = self.env2.get_lives()
+            total_reward_game2 = 0
             total_reward_clamped_game2 = self.env2.get_lives()
             # total scores for both games
             total_reward = total_reward_game1 + total_reward_game2
