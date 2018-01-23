@@ -2,10 +2,20 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+from argparse import RawTextHelpFormatter
 from single_agent import SingleAgent
 
 def main(args):
-    agent = SingleAgent(args.game, pretrained_model=args.pretrained_model)
+    if args.game==1:
+        game='Breakout'
+    if args.game==2:
+        game='SpaceInvaders'
+    if args.game==3:
+        game='Phoenix'
+    if args.game==4:
+        game='Assault'
+
+    agent = SingleAgent(game, pretrained_model=args.pretrained_model)
 
     if args.play:
         agent.play()
@@ -14,8 +24,13 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('python main.py', description = 'DQN reinforcement learning agent')
-    parser.add_argument('game', help='The game that will be used [Breakout-v0, SpaceInvaders-v0]', type=str)
+    parser = argparse.ArgumentParser('python single_game.py', description = 'DQN reinforcement learning agent',
+                                     formatter_class=RawTextHelpFormatter)
+    parser.add_argument('game', type=int, choices=range(1,5), help='Select the both games, that should be played:\n' +
+                                                                    '(1) Breakout\n' +
+                                                                    '(2) SpaceInvaders\n' +
+                                                                    '(3) Phoenix\n' +
+                                                                    '(4) Assault')
 
     parser.add_argument('-t','--train', action='store_true',  help='The agent will be trained (default behavior)')
     parser.add_argument('-p','--play', action='store_true', help='The agent will play a game')

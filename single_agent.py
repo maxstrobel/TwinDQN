@@ -30,20 +30,29 @@ def gray2pytorch(img):
     return torch.from_numpy(img[:,:,None].transpose(2, 0, 1)).unsqueeze(0)
 
 # dimensions: tuple (h1,h2,w1,w2) with dimensions of the game (to crop borders)
-dimensions = {'Breakout-v0': (32, 195, 8, 152),
-              'SpaceInvaders-v0': (21, 195, 20, 141),
-              'Assault-v0': (50, 240, 5, 155),
-              'Phoenix-v0': (23, 183, 0, 160),
-              'Skiing-v0': (55, 202, 8, 152),
-              'Enduro-v0': (50, 154, 8, 160),
-              'BeamRider-v0': (32, 180, 9, 159),
+dimensions = {'Breakout': (32, 195, 8, 152),
+              'SpaceInvaders': (21, 195, 20, 141),
+              'Assault': (50, 240, 5, 155),
+              'Phoenix': (23, 183, 0, 160),
+              'Skiing': (55, 202, 8, 152),
+              'Enduro': (50, 154, 8, 160),
+              'BeamRider': (32, 180, 9, 159),
+              }
+
+game_name = {'Breakout': 'BreakoutNoFrameskip-v4',
+             'SpaceInvaders': 'SpaceInvadersNoFrameskip-v4',
+             'Assault': 'AssaultNoFrameskip-v4',
+             'Phoenix': 'PhoenixNoFrameskip-v4',
+             'Skiing': 'SkiingNoFrameskip-v4',
+             'Enduro': 'EnduroNoFrameskip-v4',
+             'BeamRider': 'BeamRiderNoFrameskip-v4',
               }
 
 
 class SingleAgent(object):
     def __init__(self,
                  game,
-                 mem_size = 800000,
+                 mem_size = 1000000,
                  state_buffer_size = 4,
                  batch_size = 64,
                  learning_rate = 1e-5,
@@ -65,7 +74,7 @@ class SingleAgent(object):
         self.game = game
 
         # Environment
-        self.env = Environment(game, dimensions[game], frameskip=frameskip)
+        self.env = Environment(game_name[game], dimensions[game], frameskip=frameskip)
 
         # Cuda
         self.use_cuda = torch.cuda.is_available()
@@ -150,7 +159,7 @@ class SingleAgent(object):
             action = self.net(state_variable).data.max(1)[1].view(1,1)
 
             # Prevent noops
-            if action[0,0]==0:
+            if action[0,0]!=1:
                 self.noops_count += 1
                 if self.noops_count == MAXNOOPS:
                     action[0,0] = 1

@@ -7,17 +7,17 @@ from double_agent import DoubleAgent
 
 def main(args):
     if args.games==1:
-        game1='Breakout-v0'
-        game2='SpaceInvaders-v0'
+        game1='Breakout'
+        game2='SpaceInvaders'
     if args.games==2:
-        game1='SpaceInvaders-v0'
-        game2='Assault-v0'
+        game1='SpaceInvaders'
+        game2='Assault'
     if args.games==3:
-        game1='SpaceInvaders-v0'
-        game2='Phoenix-v0'
+        game1='SpaceInvaders'
+        game2='Phoenix'
     if args.games==4:
-        game1='Assault-v0'
-        game2='Phoenix-v0'
+        game1='Assault'
+        game2='Phoenix'
 
     agent = DoubleAgent(game1, game2,
                         pretrained_model=args.m,
@@ -31,7 +31,7 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('python main.py', description = 'DQN reinforcement learning agent for playing two games simultaneously',
+    parser = argparse.ArgumentParser('python double_game.py', description = 'DQN reinforcement learning agent for playing two games simultaneously',
                                      formatter_class=RawTextHelpFormatter)
     parser.add_argument('games', type=int, choices=range(1,5), help='Select the both games, that should be played:\n' +
                                                                     '(1) Breakout and SpaceInvaders\n' +

@@ -30,15 +30,23 @@ def gray2pytorch(img):
     return torch.from_numpy(img[:,:,None].transpose(2, 0, 1)).unsqueeze(0)
 
 # dimensions: tuple (h1,h2,w1,w2) with dimensions of the game (to crop borders)
-dimensions = {'Breakout-v0': (32, 195, 8, 152),
-              'SpaceInvaders-v0': (21, 195, 20, 141),
-              'Assault-v0': (50, 240, 5, 155),
-              'Phoenix-v0': (23, 183, 0, 160),
-              'Skiing-v0': (55, 202, 8, 152),
-              'Enduro-v0': (50, 154, 8, 160),
-              'BeamRider-v0': (32, 180, 9, 159),
+dimensions = {'Breakout': (32, 195, 8, 152),
+              'SpaceInvaders': (21, 195, 20, 141),
+              'Assault': (50, 240, 5, 155),
+              'Phoenix': (23, 183, 0, 160),
+              'Skiing': (55, 202, 8, 152),
+              'Enduro': (50, 154, 8, 160),
+              'BeamRider': (32, 180, 9, 159),
               }
 
+game_name = {'Breakout': 'BreakoutNoFrameskip-v4',
+             'SpaceInvaders': 'SpaceInvadersNoFrameskip-v4',
+             'Assault': 'AssaultNoFrameskip-v4',
+             'Phoenix': 'PhoenixNoFrameskip-v4',
+             'Skiing': 'SkiingNoFrameskip-v4',
+             'Enduro': 'EnduroNoFrameskip-v4',
+             'BeamRider': 'BeamRiderNoFrameskip-v4',
+              }
 
 class DoubleAgent(object):
     def __init__(self,
@@ -51,7 +59,7 @@ class DoubleAgent(object):
                  pretrained_model = None,
                  pretrained_subnet1 = False,
                  pretrained_subnet2 = False,
-                 frameskip = 3
+                 frameskip = 4
                  ):
         """
         Inputs:
@@ -69,8 +77,8 @@ class DoubleAgent(object):
         self.game2 = game2
 
         # Environment
-        self.env1 = Environment(game1, dimensions[game1], frameskip=frameskip)
-        self.env2 = Environment(game2, dimensions[game2], frameskip=frameskip)
+        self.env1 = Environment(game_name[game1], dimensions[game1], frameskip=frameskip)
+        self.env2 = Environment(game_name[game2], dimensions[game2], frameskip=frameskip)
 
 
         # Neural net
@@ -163,7 +171,7 @@ class DoubleAgent(object):
             action = self.net(state_variable).data.max(1)[1].view(1,1)
 
             # Prevent noops
-            if action[0,0]==0:
+            if action[0,0]!=1:
                 self.noops_count += 1
                 if self.noops_count == MAXNOOPS:
                     action[0,0] = 1
@@ -188,17 +196,17 @@ class DoubleAgent(object):
         - action: int
         """
         # Map SpaceInvaders on Breakout
-        if self.game1=='Breakout-v0' and self.game2=='SpaceInvaders-v0':
+        if self.game1=='Breakout' and self.game2=='SpaceInvaders':
             if action>3: # shoot+right/left --> right/left
                 return action-2
 
         # Map Assault on SpaceInvaders
-        if self.game1=='SpaceInvaders-v0' and self.game2=='Assault-v0':
+        if self.game1=='SpaceInvaders' and self.game2=='Assault':
             if action!=0: # all actions except 2nd idle
                 return action-1
 
         # Map Phoenix on SpaceInvaders
-        if self.game1=='SpaceInvaders-v0' and self.game2=='Phoenix-v0':
+        if self.game1=='SpaceInvaders' and self.game2=='Phoenix':
             if action==4: # shield --> idle
                 return 0
             if action==7: # shield+shot --> shot
@@ -207,7 +215,7 @@ class DoubleAgent(object):
                 return action-1
 
         # Map Phoenix on Assault
-        if self.game1=='Assault-v0' and self.game2=='Phoenix-v0':
+        if self.game1=='Assault' and self.game2=='Phoenix':
             if action==4: # shield --> idle
                 return 0
             if action==7: # shield+shot --> shot
