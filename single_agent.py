@@ -266,7 +266,7 @@ class SingleAgent(object):
         while not done:
             action = self.select_action(state, mode='play')
 
-            screen, reward, done, info = self.env.step(action[0,0], mode='play')
+            screen, reward, reward_clamped, done, info = self.env.step(action[0,0], mode='play')
             score += reward
 
             #   save latest frame, discard oldest
@@ -349,12 +349,12 @@ class SingleAgent(object):
                 action = self.select_action(state)
 
                 # perform selected action on game
-                screen, reward, done, info = self.env.step(action[0,0])#envTest.step(action[0,0])
+                screen, reward, reward_clamped, done, info = self.env.step(action[0,0])#envTest.step(action[0,0])
                 total_reward += int(reward)
+                total_reward_clamped += int(reward_clamped)
 
-                #   clamp rewards
-                reward = torch.Tensor([np.clip(reward,-1,1)])
-                total_reward_clamped += int(reward[0])
+                # Wrap into tensor
+                reward = torch.Tensor([reward_clamped])
 
                 #   save latest frame, discard oldest
                 for j in range(self.num_stored_frames-1):

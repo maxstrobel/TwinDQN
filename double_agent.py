@@ -327,8 +327,8 @@ class DoubleAgent(object):
             action2 = action
 
             # perform selected action on game
-            screen1, reward1, done1, info1 = self.env1.step(action1, mode='play')
-            screen2, reward2, done2, info2 = self.env2.step(action2, mode='play')
+            screen1, reward1, reward1_clamped, done1, info1 = self.env1.step(action1, mode='play')
+            screen2, reward2, reward2_clamped, done2, info2 = self.env2.step(action2, mode='play')
 
             # Logging
             total_reward_game1 += int(reward1)
@@ -457,17 +457,13 @@ class DoubleAgent(object):
                 action2 = action[0,0]
 
                 # perform selected action on game
-                screen1, reward1, done1, info1 = self.env1.step(action1)
-                screen2, reward2, done2, info2 = self.env2.step(action2)
+                screen1, reward1, reward1_clamped, done1, info1 = self.env1.step(action1)
+                screen2, reward2, reward2_clamped, done2, info2 = self.env2.step(action2)
+
                 # Logging
                 total_reward_game1 += int(reward1)
                 total_reward_game2 += int(reward2)
                 total_reward += int(reward1) + int(reward2)
-
-                #   clamp rewards
-                reward1_clamped = np.clip(reward1,-1,1)
-                reward2_clamped = np.clip(reward2,-1,1)
-                # Logging
                 total_reward_clamped_game1 += reward1_clamped
                 total_reward_clamped_game2 += reward2_clamped
                 total_reward_clamped += reward1_clamped + reward2_clamped

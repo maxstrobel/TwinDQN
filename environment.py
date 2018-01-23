@@ -166,6 +166,7 @@ class Environment(object):
         - info: dict with the current number of lives
         """
         total_reward = 0
+        penalty = 0
         if mode=='train':
             lives_before = self.get_lives()
 
@@ -181,7 +182,7 @@ class Environment(object):
             total_reward += reward
             lives_after = self.get_lives()
             if lives_before>lives_after:
-                total_reward = -1.0
+                penalty = -1.0
         elif mode=='play':
             observation0, reward, done, info = self.game.step(action)
             total_reward += reward
@@ -193,7 +194,9 @@ class Environment(object):
         observation = np.maximum(observation0,observation1)
         self.current_observation = observation
         observation = self.preprocess(observation)
-        return observation, total_reward, done, info
+        # Check whether penalty or clipped reward is returned
+        reward_clamped = penalty if penalty else np.clip(total_reward,-1,1)
+        return observation, total_reward, reward_clamped, done, info
 
 
     def sample_action(self):
