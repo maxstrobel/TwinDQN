@@ -94,6 +94,8 @@
 
 \begin{columns}
     \column{0.3}
+    \block{Our Idea}{For this project we tried adapting already existing methods of reinforcement learning for Atari 2600 games to train a new architecture to play two Atari games simultaniously only using the same action for both. Before coming up with a new architecture we first trained a Deep-Q-Learning neural network on multiple single games. For the game Breakout we achieved above human-performance with this trained model which was our first goal of this project. After finishing this task we tried various new architectures to reach our second goal; to perform better than random play on two Atari games concurrently with the same action sequence. 
+    }
     \block{Preprocessing \& Environment}{
     	The environment for the learning agents was OpenAI gym. This toolkit for
     	developing and comparing reinforcement learning agents was used as an interface to Atari 2600
@@ -101,21 +103,23 @@
     	informations about the state of the games as well as the current screen. Due to an internal
     	flickering of the games (e.g. shoots are only on odd frames visible), the current screen is
     	obtained by a maximum operation on two successive frames.
-    	Before the screen was feed into the neural network with the screen, it was preprocessed as 	
+    	Before the screen was fed into the neural network with the screen, it was preprocessed as 	
     	depicted in the graphic below.
 		\begin{tikzpicture}
 		\node[inner sep=0pt] (preprocessing) at (0,0)
     	{\includegraphics[width=.26\textwidth]{preprocessing_pipeline.png}};
     	\end{tikzpicture}
     	In OpenAI gym there exists a frame skipping technique, that was also modified. Instead of
-    	skipping randomly between two and five frames, the frame skipping rate was set to a constant
+    	skipping randomly between two and four frames, the frame skipping rate was set to a constant
     	value. During the training the rewards were clamped to -1 and 1 to gain comparability between
-    	different games. Additional the lost of one live was punished with an reward of -1, whatever
+    	different games. Additional the loss of one live was punished with a reward of -1, whatever
     	the real reward was.
     }
-    \block{First column second block}{Content in your block.}
+    \block{Visualization}{
+	TODO: 	visualize first conv layer.
+}
 
-    \column{0.5}
+    \column{0.3}
     \block{First Architecture}{For the first architecture we duplicated the already existing DQN model, removed the output layers of both subnets and added two additional fully connected layers of size 1024 and the maximum of the action spaces of the games to map the input screens of both games to one single action. Each of the two preprocessed frame histories is fed into one of the subnets separately. With this version we already achieved our first goal which is being better than random play.}
     \block{Second column second block}{Content in your block.}
 \end{columns}
