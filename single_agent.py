@@ -7,7 +7,7 @@ from torch.nn import functional as F
 from torch.autograd import Variable
 
 import numpy as np
-from random import random
+from random import random , randrange
 from collections import namedtuple
 from datetime import datetime
 import pickle
@@ -297,7 +297,10 @@ class SingleAgent(object):
         reward_history = []
         reward_clamped_history = []
 
-        for i_episode in range(n_games):
+        # Number of actions to sapmle from
+        n_actions = self.env.get_number_of_actions()
+
+        for i_episode in range(1, n_games+1):
             # Reset game
             self.env.reset()
 
@@ -309,7 +312,7 @@ class SingleAgent(object):
             total_reward_clamped = self.env.get_lives()
 
             while not done:
-                action = self.env.sample_action()
+                action = randrange(n_actions)
                 _, reward, reward_clamped, done, _ = self.env.step(action)
                 total_reward += int(reward)
                 total_reward_clamped += int(reward_clamped)
@@ -327,7 +330,7 @@ class SingleAgent(object):
 
         # Print final result
         print('\n\n=============================================\n' +
-              'avg score after {:6} episodes: ({:.2f}/{:.2f})'.format(n_games, avg_reward, avg_reward_clamped))
+              'avg score after {:6} episodes: ({:.2f}/{:.2f})'.format(n_games, avg_reward_clamped, avg_reward))
 
         # Log results to files
         with open(sub_dir + 'random.log', 'w') as fp:

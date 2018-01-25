@@ -7,7 +7,7 @@ from torch.nn import functional as F
 from torch.autograd import Variable
 
 import numpy as np
-from random import random
+from random import random, randrange
 from collections import namedtuple
 from datetime import datetime
 import pickle
@@ -376,8 +376,10 @@ class DoubleAgent(object):
         reward_history_game2 = []
         reward_clamped_history_game2 = []
 
+        # Number of actions to sapmle from
+        n_actions = self.env2.get_number_of_actions()
 
-        for i_episode in range(n_games):
+        for i_episode in range(1, n_games+1):
             # Reset game
             self.env1.reset()
             self.env2.reset()
@@ -395,13 +397,13 @@ class DoubleAgent(object):
             total_reward_clamped = total_reward_clamped_game1 + total_reward_clamped_game2
 
             while not done:
-                action = self.env2.sample_action()
+                action = randrange(n_actions)
                 action1 = self.map_action(action)
                 action2 = action
-        
+
                 _, reward1, reward1_clamped, done1, _ = self.env1.step(action1)
                 _, reward2, reward2_clamped, done2, _ = self.env2.step(action2)
-        
+
                 # Logging
                 total_reward_game1 += int(reward1)
                 total_reward_game2 += int(reward2)
