@@ -185,6 +185,7 @@ class DoubleAgent(object):
 
         return action
 
+
     def map_action(self, action):
         """
         Maps action from game with more actions
@@ -225,6 +226,7 @@ class DoubleAgent(object):
 
         # No mapping necessary
         return action
+
 
     def optimize(self, net_updates):
         """
@@ -350,6 +352,118 @@ class DoubleAgent(object):
         print('Final score (total):', total_reward)
         self.env1.game.close()
         self.env2.game.close()
+
+
+    def random_play(self, n_games):
+        """
+        Play a game randomly and log results for statistics
+        
+        Input:
+        n_games: int Number of games to play
+        """
+        # Subdirectory for logging
+        sub_dir = 'random_' + self.game1 + '+' + self.game2 + '/'
+        if not os.path.exists(sub_dir):
+            os.makedirs(sub_dir)
+            
+        # Store history total
+        reward_history = []
+        reward_clamped_history = []
+        # Store history game 1
+        reward_history_game1 = []
+        reward_clamped_history_game1 = []
+        # Store history game 2
+        reward_history_game2 = []
+        reward_clamped_history_game2 = []
+
+
+        for i_episode in range(n_games):
+            # Reset game
+            self.env1.reset()
+            self.env2.reset()
+
+            # games end indicator variable
+            done = False
+
+            # reset score with initial lives, because every lost live adds -1
+            total_reward_game1 = 0
+            total_reward_clamped_game1 = self.env1.get_lives()
+            total_reward_game2 = 0
+            total_reward_clamped_game2 = self.env2.get_lives()
+            # total scores for both games
+            total_reward = total_reward_game1 + total_reward_game2
+            total_reward_clamped = total_reward_clamped_game1 + total_reward_clamped_game2
+
+            while not done:
+                action = self.env2.sample_action()
+                action1 = self.map_action(action)
+                action2 = action
+        
+                _, reward1, reward1_clamped, done1, _ = self.env1.step(action1)
+                _, reward2, reward2_clamped, done2, _ = self.env2.step(action2)
+        
+                # Logging
+                total_reward_game1 += int(reward1)
+                total_reward_game2 += int(reward2)
+                total_reward += int(reward1) + int(reward2)
+                total_reward_clamped_game1 += reward1_clamped
+                total_reward_clamped_game2 += reward2_clamped
+                total_reward_clamped += reward1_clamped + reward2_clamped
+
+                # Merged game over indicator
+                done = done1 or done2
+
+            # Print current result
+            print('Episode: {:6}/{:6} |   '.format(i_episode, n_games) +
+                  'score total: ({:6.1f}/{:7.1f}) |   '.format(total_reward_clamped,total_reward) +
+                  'score game1: ({:6.1f}/{:7.1f}) |   '.format(total_reward_clamped_game1,total_reward_game1) +
+                  'score game2: ({:6.1f}/{:7.1f})'.format(total_reward_clamped_game2,total_reward_game2))
+
+            # Save rewards
+            reward_history_game1.append(total_reward_game1)
+            reward_history_game2.append(total_reward_game2)
+            reward_history.append(total_reward)
+            reward_clamped_history_game1.append(total_reward_clamped_game1)
+            reward_clamped_history_game2.append(total_reward_clamped_game2)
+            reward_clamped_history.append(total_reward_clamped)
+
+        avg_reward_total = np.sum(reward_history) / len(reward_history)
+        avg_reward_total_clamped = np.sum(reward_clamped_history) / len(reward_clamped_history)
+        avg_reward_game1 = np.sum(reward_history_game1) / len(reward_history_game1)
+        avg_reward_game1_clamped = np.sum(reward_clamped_history_game1) / len(reward_clamped_history_game1)
+        avg_reward_game2 = np.sum(reward_history_game2) / len(reward_history_game2)
+        avg_reward_game2_clamped = np.sum(reward_clamped_history_game2) / len(reward_clamped_history_game2)
+
+        # Print final result
+        print('\n\n===========================================\n' +
+              'avg score after {:6} episodes:\n'.format(n_games) +
+              'avg total: ({:6.1f}/{:7.1f})\n'.format(avg_reward_total_clamped,avg_reward_total) +
+              'avg game1: ({:6.1f}/{:7.1f})\n'.format(avg_reward_game1_clamped,avg_reward_game1) +
+              'avg game2: ({:6.1f}/{:7.1f})\n'.format(avg_reward_game2_clamped,avg_reward_game2))
+
+        # Log results to files
+        with open(sub_dir + 'random.log', 'w') as fp:
+            fp.write('avg score after {:6} episodes:\n'.format(n_games) +
+                     'avg total: ({:6.1f}/{:7.1f})\n'.format(avg_reward_total_clamped,avg_reward_total) +
+                     'avg game1: ({:6.1f}/{:7.1f})\n'.format(avg_reward_game1_clamped,avg_reward_game1) +
+                     'avg game2: ({:6.1f}/{:7.1f})\n'.format(avg_reward_game2_clamped,avg_reward_game2))
+
+        # Dump reward
+        with open(sub_dir + 'random_reward_game1.pickle', 'wb') as fp:
+            pickle.dump(reward_history_game1, fp)
+        with open(sub_dir + 'random_reward_game2.pickle', 'wb') as fp:
+            pickle.dump(reward_history_game2, fp)
+        with open(sub_dir + 'random_reward_total.pickle', 'wb') as fp:
+            pickle.dump(reward_history, fp)
+
+        with open(sub_dir + 'random_reward_clamped_game1', 'wb') as fp:
+            pickle.dump(reward_clamped_history_game1, fp)
+        with open(sub_dir + 'random_reward_clamped_game2', 'wb') as fp:
+            pickle.dump(reward_clamped_history_game2, fp)
+        with open(sub_dir + 'random_reward_clamped_total', 'wb') as fp:
+            pickle.dump(reward_clamped_history, fp)
+
+
 
     def train(self):
         """
