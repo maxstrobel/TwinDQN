@@ -115,16 +115,16 @@
     	different games. Additional the loss of one live was punished with a reward of -1, whatever
     	the real reward was.
     }
-    \block{Visualization}{
-	TODO: 	visualize first conv layer.
-}
 
-    \column{0.3}
+    \column{0.4}
     \block{First Architecture}{For the first architecture we duplicated the already existing DQN model, removed the output layers of both subnets and added two additional fully connected layers of size 1024 and the maximum of the action spaces of the games to map the input screens of both games to one single action. Each of the two preprocessed frame histories is fed into one of the subnets separately. With this version we already achieved our first goal which is being better than random play.}
     \block{Second Architecture}{Another architecture we used to train both games at the same time was the typical DQN model. As input the frames of both games were concatenated into a single tensor. The dimensions of the torch tensor as input for the DQN is [1,4,168,84]. Furthermore the rewards of both environments are combined. The results for this architecture were way worse than for the first architecture. 
 (Possible reasons?)
 (More details about the rewards etc.?)
 }
+    \column{0.3}
+    \block{Visualization}{content}
+    \block{Results}{content}
 \end{columns}
 
 \end{document}
