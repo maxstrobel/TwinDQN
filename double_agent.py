@@ -48,6 +48,7 @@ game_name = {'Breakout': 'BreakoutNoFrameskip-v4',
              'BeamRider': 'BeamRiderNoFrameskip-v4',
               }
 
+
 class DoubleAgent(object):
     def __init__(self,
                  game1,
@@ -59,7 +60,8 @@ class DoubleAgent(object):
                  pretrained_model = None,
                  pretrained_subnet1 = False,
                  pretrained_subnet2 = False,
-                 frameskip = 4
+                 frameskip = 4,
+                 frozen = False
                  ):
         """
         Inputs:
@@ -70,6 +72,9 @@ class DoubleAgent(object):
         - batch_size: int
         - learning_rate: float
         - pretrained_model: str path to the model
+        - pretrained_subnet1: str path to the model of the subnet
+        - pretrained_subnet2: str path to the model of the subnet
+        - frozen: boolean freeze pretrained subnets
         """
 
         # Namestring
@@ -87,11 +92,13 @@ class DoubleAgent(object):
         self.net = DoubleDQN(channels_in = state_buffer_size,
                              num_actions = self.env2.get_number_of_actions(),
                              pretrained_subnet1 = pretrained_subnet1,
-                             pretrained_subnet2 = pretrained_subnet2)
+                             pretrained_subnet2 = pretrained_subnet2,
+                             frozen = frozen)
         self.target_net = DoubleDQN(channels_in = state_buffer_size,
                                     num_actions = self.env2.get_number_of_actions(),
                                     pretrained_subnet1 = pretrained_subnet1,
-                                    pretrained_subnet2 = pretrained_subnet2)
+                                    pretrained_subnet2 = pretrained_subnet2,
+                                    frozen = frozen)
 
         # Cuda
         self.use_cuda = torch.cuda.is_available()
@@ -109,8 +116,10 @@ class DoubleAgent(object):
 
         # Optimizer
         self.learning_rate = learning_rate
-        self.optimizer = optim.Adam(self.net.parameters(), lr=learning_rate)
-        #self.optimizer = optim.RMSprop(self.net.parameters(), lr=learning_rate,alpha=0.95, eps=0.01)
+        self.optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.net.parameters()),
+                                    lr=learning_rate)
+        #self.optimizer = optim.RMSprop(filter(lambda p: p.requires_grad, self.net.parameters()),
+        #                               lr=learning_rate,alpha=0.95, eps=0.01)
 
         self.batch_size = batch_size
         self.optimize_each_k = 1
@@ -464,7 +473,6 @@ class DoubleAgent(object):
             pickle.dump(reward_clamped_history_game2, fp)
         with open(sub_dir + 'random_reward_clamped_total', 'wb') as fp:
             pickle.dump(reward_clamped_history, fp)
-
 
 
     def train(self):

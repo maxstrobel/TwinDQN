@@ -6,7 +6,12 @@ import torch.nn as nn
 from dqn import DQN
 
 class DoubleDQN(nn.Module):
-    def __init__(self, channels_in, num_actions, pretrained_subnet1=False, pretrained_subnet2=False):
+    def __init__(self,
+                 channels_in,
+                 num_actions,
+                 pretrained_subnet1=False,
+                 pretrained_subnet2=False,
+                 frozen=False):
         super(DoubleDQN, self).__init__()
 
         # Subnet 1
@@ -19,12 +24,19 @@ class DoubleDQN(nn.Module):
         feats_subnet2 = list(subnet2.children())
         self.subnet2 = nn.Sequential(*feats_subnet2[0:9])
 
+        # Freeze weights from pretrained models
+        if frozen:
+            for m in self.modules():
+                if isinstance(m, nn.Conv2d):
+                    m.requires_grad = False
+
         # Union net
         self.fc5 = nn.Linear(in_features=1024,
                              out_features=512)
         self.relu5 = nn.ReLU(True)
         self.fc6 = nn.Linear(in_features=512,
                              out_features=num_actions)
+
 
     def load_subnet(self, channels_in, pretrained_net=None):
         """
@@ -52,6 +64,7 @@ class DoubleDQN(nn.Module):
             subnet.load_state_dict(subnet_dict)
 
         return subnet
+
 
     def forward(self, x):
         """

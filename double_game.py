@@ -5,6 +5,7 @@ import argparse
 from argparse import RawTextHelpFormatter
 from double_agent import DoubleAgent
 
+
 def main(args):
     if args.games==1:
         game1='Breakout'
@@ -22,7 +23,8 @@ def main(args):
     agent = DoubleAgent(game1, game2,
                         pretrained_model=args.m,
                         pretrained_subnet1=args.s1,
-                        pretrained_subnet2=args.s2)
+                        pretrained_subnet2=args.s2,
+                        frozen = args.freeze)
 
     if args.play:
         agent.play()
@@ -47,6 +49,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', help='The agent will use the specified model for the whole net', type=str)
     parser.add_argument('-s1', help='The agent will use the specified net as subnet for game 1', type=str)
     parser.add_argument('-s2', help='The agent will use the specified net as subnet for game 2', type=str)
+    parser.add_argument('-f','--freeze', action='store_true', help='Freeze the conv-layers of the subnets')
     args = parser.parse_args()
 
     main(args)

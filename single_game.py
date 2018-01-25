@@ -5,6 +5,7 @@ import argparse
 from argparse import RawTextHelpFormatter
 from single_agent import SingleAgent
 
+
 def main(args):
     if args.game==1:
         game='Breakout'

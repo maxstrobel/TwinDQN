@@ -18,14 +18,17 @@ class ReplayMemory(object):
         self.num_transitions = 0
         self.num_history = num_history_frames
 
+
     def getCurrentIndex(self):
         return (self.num_frames-1)%self.capacity
+
 
     def pushTransition(self,*args):
         if len(self.memoryTransitions) < self.capacity-1:
             self.memoryTransitions.append(None)
         self.memoryTransitions[self.num_transitions] = TransitionIdx(*args)
         self.num_transitions = (self.num_transitions+1)% (self.capacity-1)
+
 
     def pushFrame(self, frame):
         if len(self.memory)< self.capacity:
@@ -34,6 +37,7 @@ class ReplayMemory(object):
             self.memory_full = True
         self.memory[self.num_frames] = frame
         self.num_frames = (self.num_frames +1)% self.capacity
+
 
     def sampleTransition(self, batch_size):
         rnd_transitions = random.sample(self.memoryTransitions, batch_size)
@@ -60,6 +64,7 @@ class ReplayMemory(object):
                     next_state = torch.cat((self.memory[(idx)%self.capacity], next_state),1)
                 output[i] = Transition(state.type(tType)/255.0, action, next_state.type(tType)/255.0, reward)
         return Transition(*zip(* output))
+
 
     def __len__(self):
         return len(self.memory)
