@@ -86,6 +86,7 @@ class DQN(nn.Module):
         print('Loading model... %s' % path)
         self.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage))
 
+
 class Flatten(nn.Module):
     def forward(self, input):
         return input.view(input.size(0), -1)

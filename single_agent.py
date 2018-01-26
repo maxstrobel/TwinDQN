@@ -7,7 +7,7 @@ from torch.nn import functional as F
 from torch.autograd import Variable
 
 import numpy as np
-from random import random
+from random import random , randrange
 from collections import namedtuple
 from datetime import datetime
 import pickle
@@ -125,6 +125,7 @@ class SingleAgent(object):
         # Save net
         self.save_net_each_k_episodes = 500
 
+
     def select_action(self, observation, mode='train'):
         """
         Select an random action from action space or an proposed action
@@ -232,7 +233,6 @@ class SingleAgent(object):
 
         self.optimizer.zero_grad()
 
-
         loss.backward()
         for param in self.net.parameters():
             param.grad.data.clamp_(-1, 1)
@@ -279,6 +279,66 @@ class SingleAgent(object):
 
         print('Final score:', score)
         self.env.game.close()
+
+
+    def random_play(self, n_games):
+        """
+        Play a game randomly and log results for statistics
+        
+        Input:
+        n_games: int Number of games to play
+        """
+        # Subdirectory for logging
+        sub_dir = 'random_' + self.game + '/'
+        if not os.path.exists(sub_dir):
+            os.makedirs(sub_dir)
+
+        # Store history
+        reward_history = []
+        reward_clamped_history = []
+
+        # Number of actions to sapmle from
+        n_actions = self.env.get_number_of_actions()
+
+        for i_episode in range(1, n_games+1):
+            # Reset game
+            self.env.reset()
+
+            # games end indicator variable
+            done = False
+
+            # reset score with initial lives, because every lost live adds -1
+            total_reward = 0
+            total_reward_clamped = self.env.get_lives()
+
+            while not done:
+                action = randrange(n_actions)
+                _, reward, reward_clamped, done, _ = self.env.step(action)
+                total_reward += int(reward)
+                total_reward_clamped += int(reward_clamped)
+
+            # Print current result
+            print('Episode: {:6}/{:6} |  '.format(i_episode, n_games),
+                  'score: ({:4}/{:4})'.format(total_reward_clamped,total_reward))
+
+            # Save rewards
+            reward_history.append(total_reward)
+            reward_clamped_history.append(total_reward_clamped)
+
+        avg_reward = np.sum(reward_history)/len(reward_history)
+        avg_reward_clamped = np.sum(reward_clamped_history)/len(reward_clamped_history)
+
+        # Print final result
+        print('\n\n=============================================\n' +
+              'avg score after {:6} episodes: ({:.2f}/{:.2f})'.format(n_games, avg_reward_clamped, avg_reward))
+
+        # Log results to files
+        with open(sub_dir + 'random.log', 'w') as fp:
+            fp.write('avg score after {:6} episodes: ({:.2f}/{:.2f})'.format(n_games, avg_reward,avg_reward_clamped))
+        with open(sub_dir + 'random_reward.pickle', 'wb') as fp:
+            pickle.dump(reward_history, fp)
+        with open(sub_dir + 'random_reward_clamped.pickle', 'wb') as fp:
+            pickle.dump(reward_clamped_history, fp)
 
 
     def train(self):

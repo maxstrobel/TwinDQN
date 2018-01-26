@@ -7,7 +7,7 @@ from torch.nn import functional as F
 from torch.autograd import Variable
 
 import numpy as np
-from random import random
+from random import random, randrange
 from collections import namedtuple
 from datetime import datetime
 import pickle
@@ -48,6 +48,7 @@ game_name = {'Breakout': 'BreakoutNoFrameskip-v4',
              'BeamRider': 'BeamRiderNoFrameskip-v4',
               }
 
+
 class DoubleAgent(object):
     def __init__(self,
                  game1,
@@ -59,7 +60,8 @@ class DoubleAgent(object):
                  pretrained_model = None,
                  pretrained_subnet1 = False,
                  pretrained_subnet2 = False,
-                 frameskip = 4
+                 frameskip = 4,
+                 frozen = False
                  ):
         """
         Inputs:
@@ -70,6 +72,9 @@ class DoubleAgent(object):
         - batch_size: int
         - learning_rate: float
         - pretrained_model: str path to the model
+        - pretrained_subnet1: str path to the model of the subnet
+        - pretrained_subnet2: str path to the model of the subnet
+        - frozen: boolean freeze pretrained subnets
         """
 
         # Namestring
@@ -87,11 +92,13 @@ class DoubleAgent(object):
         self.net = DoubleDQN(channels_in = state_buffer_size,
                              num_actions = self.env2.get_number_of_actions(),
                              pretrained_subnet1 = pretrained_subnet1,
-                             pretrained_subnet2 = pretrained_subnet2)
+                             pretrained_subnet2 = pretrained_subnet2,
+                             frozen = frozen)
         self.target_net = DoubleDQN(channels_in = state_buffer_size,
                                     num_actions = self.env2.get_number_of_actions(),
                                     pretrained_subnet1 = pretrained_subnet1,
-                                    pretrained_subnet2 = pretrained_subnet2)
+                                    pretrained_subnet2 = pretrained_subnet2,
+                                    frozen = frozen)
 
         # Cuda
         self.use_cuda = torch.cuda.is_available()
@@ -109,8 +116,10 @@ class DoubleAgent(object):
 
         # Optimizer
         self.learning_rate = learning_rate
-        self.optimizer = optim.Adam(self.net.parameters(), lr=learning_rate)
-        #self.optimizer = optim.RMSprop(self.net.parameters(), lr=learning_rate,alpha=0.95, eps=0.01)
+        self.optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.net.parameters()),
+                                    lr=learning_rate)
+        #self.optimizer = optim.RMSprop(filter(lambda p: p.requires_grad, self.net.parameters()),
+        #                               lr=learning_rate,alpha=0.95, eps=0.01)
 
         self.batch_size = batch_size
         self.optimize_each_k = 1
@@ -185,6 +194,7 @@ class DoubleAgent(object):
 
         return action
 
+
     def map_action(self, action):
         """
         Maps action from game with more actions
@@ -225,6 +235,7 @@ class DoubleAgent(object):
 
         # No mapping necessary
         return action
+
 
     def optimize(self, net_updates):
         """
@@ -350,6 +361,119 @@ class DoubleAgent(object):
         print('Final score (total):', total_reward)
         self.env1.game.close()
         self.env2.game.close()
+
+
+    def random_play(self, n_games):
+        """
+        Play a game randomly and log results for statistics
+        
+        Input:
+        n_games: int Number of games to play
+        """
+        # Subdirectory for logging
+        sub_dir = 'random_' + self.game1 + '+' + self.game2 + '/'
+        if not os.path.exists(sub_dir):
+            os.makedirs(sub_dir)
+            
+        # Store history total
+        reward_history = []
+        reward_clamped_history = []
+        # Store history game 1
+        reward_history_game1 = []
+        reward_clamped_history_game1 = []
+        # Store history game 2
+        reward_history_game2 = []
+        reward_clamped_history_game2 = []
+
+        # Number of actions to sapmle from
+        n_actions = self.env2.get_number_of_actions()
+
+        for i_episode in range(1, n_games+1):
+            # Reset game
+            self.env1.reset()
+            self.env2.reset()
+
+            # games end indicator variable
+            done = False
+
+            # reset score with initial lives, because every lost live adds -1
+            total_reward_game1 = 0
+            total_reward_clamped_game1 = self.env1.get_lives()
+            total_reward_game2 = 0
+            total_reward_clamped_game2 = self.env2.get_lives()
+            # total scores for both games
+            total_reward = total_reward_game1 + total_reward_game2
+            total_reward_clamped = total_reward_clamped_game1 + total_reward_clamped_game2
+
+            while not done:
+                action = randrange(n_actions)
+                action1 = self.map_action(action)
+                action2 = action
+
+                _, reward1, reward1_clamped, done1, _ = self.env1.step(action1)
+                _, reward2, reward2_clamped, done2, _ = self.env2.step(action2)
+
+                # Logging
+                total_reward_game1 += int(reward1)
+                total_reward_game2 += int(reward2)
+                total_reward += int(reward1) + int(reward2)
+                total_reward_clamped_game1 += reward1_clamped
+                total_reward_clamped_game2 += reward2_clamped
+                total_reward_clamped += reward1_clamped + reward2_clamped
+
+                # Merged game over indicator
+                done = done1 or done2
+
+            # Print current result
+            print('Episode: {:6}/{:6} |   '.format(i_episode, n_games) +
+                  'score total: ({:6.1f}/{:7.1f}) |   '.format(total_reward_clamped,total_reward) +
+                  'score game1: ({:6.1f}/{:7.1f}) |   '.format(total_reward_clamped_game1,total_reward_game1) +
+                  'score game2: ({:6.1f}/{:7.1f})'.format(total_reward_clamped_game2,total_reward_game2))
+
+            # Save rewards
+            reward_history_game1.append(total_reward_game1)
+            reward_history_game2.append(total_reward_game2)
+            reward_history.append(total_reward)
+            reward_clamped_history_game1.append(total_reward_clamped_game1)
+            reward_clamped_history_game2.append(total_reward_clamped_game2)
+            reward_clamped_history.append(total_reward_clamped)
+
+        avg_reward_total = np.sum(reward_history) / len(reward_history)
+        avg_reward_total_clamped = np.sum(reward_clamped_history) / len(reward_clamped_history)
+        avg_reward_game1 = np.sum(reward_history_game1) / len(reward_history_game1)
+        avg_reward_game1_clamped = np.sum(reward_clamped_history_game1) / len(reward_clamped_history_game1)
+        avg_reward_game2 = np.sum(reward_history_game2) / len(reward_history_game2)
+        avg_reward_game2_clamped = np.sum(reward_clamped_history_game2) / len(reward_clamped_history_game2)
+
+        # Print final result
+        print('\n\n===========================================\n' +
+              'avg score after {:6} episodes:\n'.format(n_games) +
+              'avg total: ({:6.1f}/{:7.1f})\n'.format(avg_reward_total_clamped,avg_reward_total) +
+              'avg game1: ({:6.1f}/{:7.1f})\n'.format(avg_reward_game1_clamped,avg_reward_game1) +
+              'avg game2: ({:6.1f}/{:7.1f})\n'.format(avg_reward_game2_clamped,avg_reward_game2))
+
+        # Log results to files
+        with open(sub_dir + 'random.log', 'w') as fp:
+            fp.write('avg score after {:6} episodes:\n'.format(n_games) +
+                     'avg total: ({:6.1f}/{:7.1f})\n'.format(avg_reward_total_clamped,avg_reward_total) +
+                     'avg game1: ({:6.1f}/{:7.1f})\n'.format(avg_reward_game1_clamped,avg_reward_game1) +
+                     'avg game2: ({:6.1f}/{:7.1f})\n'.format(avg_reward_game2_clamped,avg_reward_game2))
+
+        # Dump reward
+        with open(sub_dir + 'random_reward_game1.pickle', 'wb') as fp:
+            pickle.dump(reward_history_game1, fp)
+        with open(sub_dir + 'random_reward_game2.pickle', 'wb') as fp:
+            pickle.dump(reward_history_game2, fp)
+        with open(sub_dir + 'random_reward_total.pickle', 'wb') as fp:
+            pickle.dump(reward_history, fp)
+
+        with open(sub_dir + 'random_reward_clamped_game1', 'wb') as fp:
+            pickle.dump(reward_clamped_history_game1, fp)
+        with open(sub_dir + 'random_reward_clamped_game2', 'wb') as fp:
+            pickle.dump(reward_clamped_history_game2, fp)
+        with open(sub_dir + 'random_reward_clamped_total', 'wb') as fp:
+            pickle.dump(reward_clamped_history, fp)
+
 
     def train(self):
         """
