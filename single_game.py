@@ -5,6 +5,7 @@ import argparse
 from argparse import RawTextHelpFormatter
 from single_agent import SingleAgent
 
+
 def main(args):
     if args.game==1:
         game='Breakout'
@@ -18,7 +19,10 @@ def main(args):
     agent = SingleAgent(game, pretrained_model=args.pretrained_model)
 
     if args.play:
-        agent.play()
+        for i in range(args.play):
+            agent.play()
+    elif args.random:
+        agent.random_play(args.random)
     else:
         agent.train()
 
@@ -33,7 +37,8 @@ if __name__ == '__main__':
                                                                     '(4) Assault')
 
     parser.add_argument('-t','--train', action='store_true',  help='The agent will be trained (default behavior)')
-    parser.add_argument('-p','--play', action='store_true', help='The agent will play a game')
+    parser.add_argument('-p','--play', metavar='N', type=int, help='The agent will play N games')
+    parser.add_argument('-r','--random', metavar='N', type=int, help='Play for N episodes randomly and log avg results for statistics')
     parser.add_argument('-m','--pretrained_model', help='The agent will use the specified net', type=str)
     args = parser.parse_args()
 

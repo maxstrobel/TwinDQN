@@ -33,35 +33,6 @@ class Environment(object):
         self.height = height
 
 
-    def play_random(self, mode='human'):
-        """
-        Plays with random actions in the given environment
-
-        Inputs:
-        - mode: string to select game mode
-                'human': window rendered with live game
-                'rgb_array': preprocessed images rendered
-        """
-        observation = self.game.reset()
-        if mode == 'rgb_array':
-            observation = self.preprocess(observation)
-            plt.imshow(observation, cmap='gray')
-            plt.show()
-
-        while True:
-            observation = self.game.render(mode=mode)
-            if mode == 'rgb_array':
-                observation = self.preprocess(observation)
-                plt.imshow(observation, cmap='gray')
-                plt.show()
-
-            action = self.game.action_space.sample()
-            observation, reward, done, info = self.game.step(action)
-            if done:
-                break
-        self.game.close()
-
-
     def rgb2gray(self, img):
         """
         Transforms rgb image to gray value image via the mean of the channels
