@@ -141,6 +141,7 @@ class SingleAgent(object):
         EPSILON_START = 1
         EPSILON_END = 0.1
         EPSILON_DECAY = 1000000
+        EPSILON_PLAY = 0.05
         MAXNOOPS = 30
 
         # Decrease of epsilon value
@@ -148,10 +149,12 @@ class SingleAgent(object):
             #epsilon = EPSILON_END + (EPSILON_START - EPSILON_END) * \
             #                        np.exp(-1. * (self.steps-self.batch_size) / EPSILON_DECAY)
             epsilon = EPSILON_START - self.steps * (EPSILON_START - EPSILON_END) / EPSILON_DECAY
+        elif mode=='play':
+            epsilon = EPSILON_PLAY
         else:
             epsilon = EPSILON_END
 
-        if epsilon < random() or mode=='play':
+        if epsilon < random():
             # Action according to neural net
             # Wrap tensor into variable
             state_variable = Variable(observation, volatile=True)
@@ -277,7 +280,7 @@ class SingleAgent(object):
             # convert frames to range 0 to 1 again
             state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
-        print('Final score:', score)
+        print('Final score {}: {}'.format(self.game, score))
         self.env.game.close()
 
 

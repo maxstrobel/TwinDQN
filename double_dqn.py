@@ -29,6 +29,7 @@ class DoubleDQN(nn.Module):
             for m in self.modules():
                 if isinstance(m, nn.Conv2d):
                     m.requires_grad = False
+            print('Subnets weights frozen')
 
         # Union net
         self.fc5 = nn.Linear(in_features=1024,
@@ -62,6 +63,7 @@ class DoubleDQN(nn.Module):
             subnet_dict.update(pretrained_dict) 
             # 3. load the new state dict
             subnet.load_state_dict(subnet_dict)
+            print('Loaded pretrained subnet...')
 
         return subnet
 

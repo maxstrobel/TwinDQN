@@ -356,8 +356,8 @@ class DoubleAgent(object):
 
             # Merged game over indicator
             done = done1 or done2
-        print('Final score (game 1):', total_reward_game1)
-        print('Final score (game 2):', total_reward_game2)
+        print('Final score {}: {}'.format(self.game1, total_reward_game1))
+        print('Final score {}: {}'.format(self.game2, total_reward_game2))
         print('Final score (total):', total_reward)
         self.env1.game.close()
         self.env2.game.close()

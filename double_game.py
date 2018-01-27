@@ -27,7 +27,8 @@ def main(args):
                         frozen = args.freeze)
 
     if args.play:
-        agent.play()
+        for i in range(args.play):
+            agent.play()
     elif args.random:
         agent.random_play(args.random)
     else:
@@ -44,9 +45,9 @@ if __name__ == '__main__':
                                                                     '(4) Assault and Phoenix')
 
     parser.add_argument('-t','--train', action='store_true',  help='The agent will be trained (default behavior)')
-    parser.add_argument('-p','--play', action='store_true', help='The agent will play a game')
-    parser.add_argument('-r','--random', metavar='N', type=int, help='Play for N episodes randomly and log avg results')
-    parser.add_argument('-m', help='The agent will use the specified model for the whole net', type=str)
+    parser.add_argument('-p','--play', metavar='N', type=int, help='The agent will play N games')
+    parser.add_argument('-r','--random', metavar='N', type=int, help='Play for N episodes randomly and log avg results for statistics')
+    parser.add_argument('-m', help='The agent will use the specified net', type=str)
     parser.add_argument('-s1', help='The agent will use the specified net as subnet for game 1', type=str)
     parser.add_argument('-s2', help='The agent will use the specified net as subnet for game 2', type=str)
     parser.add_argument('-f','--freeze', action='store_true', help='Freeze the conv-layers of the subnets')
