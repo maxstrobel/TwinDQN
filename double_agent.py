@@ -202,7 +202,7 @@ class DoubleAgent(object):
         """
         Maps action from game with more actions
         to game with less actions
-        
+
         Inputs:
         - action: int
         Returns:
@@ -369,7 +369,7 @@ class DoubleAgent(object):
     def random_play(self, n_games):
         """
         Play a game randomly and log results for statistics
-        
+
         Input:
         n_games: int Number of games to play
         """
@@ -377,7 +377,7 @@ class DoubleAgent(object):
         sub_dir = 'random_' + self.game1 + '+' + self.game2 + '/'
         if not os.path.exists(sub_dir):
             os.makedirs(sub_dir)
-            
+
         # Store history total
         reward_history = []
         reward_clamped_history = []
@@ -456,7 +456,7 @@ class DoubleAgent(object):
               'avg game2: ({:6.1f}/{:7.1f})\n'.format(avg_reward_game2_clamped,avg_reward_game2))
 
         # Log results to files
-        with open(sub_dir + 'random.log', 'w') as fp:
+        with open(sub_dir + 'random.txt', 'w') as fp:
             fp.write('avg score after {:6} episodes:\n'.format(n_games) +
                      'avg total: ({:6.1f}/{:7.1f})\n'.format(avg_reward_total_clamped,avg_reward_total) +
                      'avg game1: ({:6.1f}/{:7.1f})\n'.format(avg_reward_game1_clamped,avg_reward_game1) +
@@ -488,7 +488,7 @@ class DoubleAgent(object):
         # Logging
         sub_dir = self.game1 + '+' + self.game2 + '_' + datetime.now().strftime('%Y%m%d_%H%M%S') + '/'
         os.makedirs(sub_dir)
-        logfile = sub_dir + 'train.log'
+        logfile = sub_dir + 'train.txt'
         reward_file = sub_dir + 'reward.pickle'
         reward_file_game1 = sub_dir + 'reward_game1.pickle'
         reward_file_game2 = sub_dir + 'reward_game2.pickle'

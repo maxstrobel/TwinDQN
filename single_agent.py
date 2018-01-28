@@ -287,7 +287,7 @@ class SingleAgent(object):
     def random_play(self, n_games):
         """
         Play a game randomly and log results for statistics
-        
+
         Input:
         n_games: int Number of games to play
         """
@@ -336,7 +336,7 @@ class SingleAgent(object):
               'avg score after {:6} episodes: ({:.2f}/{:.2f})'.format(n_games, avg_reward_clamped, avg_reward))
 
         # Log results to files
-        with open(sub_dir + 'random.log', 'w') as fp:
+        with open(sub_dir + 'random.txt', 'w') as fp:
             fp.write('avg score after {:6} episodes: ({:.2f}/{:.2f})'.format(n_games, avg_reward,avg_reward_clamped))
         with open(sub_dir + 'random_reward.pickle', 'wb') as fp:
             pickle.dump(reward_history, fp)
@@ -354,7 +354,7 @@ class SingleAgent(object):
         # Logging
         sub_dir = self.game + '_' + datetime.now().strftime('%Y%m%d_%H%M%S') + '/'
         os.makedirs(sub_dir)
-        logfile = sub_dir + self.game + '_train.log'
+        logfile = sub_dir + self.game + '_train.txt'
         loss_file = sub_dir + 'loss.pickle'
         reward_file = sub_dir + 'reward.pickle'
         reward_clamped_file = sub_dir + 'reward_clamped.pickle'
