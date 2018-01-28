@@ -121,7 +121,7 @@
 		\node[inner sep=0pt] (Architecture1) at (0,0)
     	{\includegraphics[width=.26\textwidth]{two_nets.png}};
     	\end{tikzpicture}
-For the first architecture we duplicated the already existing DQN model, removed the output layers of both subnets and added two additional fully connected layers of size 1024 and the maximum of the action spaces of the games to map the input screens of both games to one single action. Each of the two preprocessed frame histories is fed into one of the subnets separately. With this version we already achieved our first goal which is being better than random play.}
+For the first architecture we duplicated the already existing DQN model, removed the output layers of both subnets and added two additional fully connected layers of size 512 and the maximum of the action spaces of the games to map the input screens of both games to one single action. Each of the two preprocessed frame histories is fed into one of the subnets separately. The resulting output action is then again mapped onto a second action which is used for the other game. With this version we already achieved our first goal which is being better than random play.}
 
     \block{Second Architecture}{\begin{tikzpicture}
 		\node[inner sep=0pt] (Architecture2) at (0,0)
@@ -144,7 +144,8 @@ Another architecture we used to train both games at the same time was the typica
 \end{tabular}
 \\
 The first element of the tuple is the clamped reward which was used for training, second one the actual, unclamped reward of both games. The random rewards were averaged over
-20000 episodes while the rewards for the double DQN took around 3 million steps.
+20000 episodes while the rewards for the double DQN took around 3 million steps. It is quite hard to compare these results to
+human performance since there are no records of humans playing two games simultaniously with just one controller.
 
 }
 \end{columns}
