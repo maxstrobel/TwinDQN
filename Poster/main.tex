@@ -137,12 +137,14 @@ Another architecture we used to train both games at the same time was the typica
     \block{Results}{
 
 \begin{tabular}{ l | c c c}
- 	Games & Random Play\\ & Double DQN & Single DQN  \\
+ 	Games & Random Play & Double DQN & Single DQN  \\
 	\hline
 	Breakout + SpaceInvaders & (6.9, 40.3) &  (,) & (,)\\
-	Phoenix + SpaceInvaders & (24.9, 640.5) & (42.9, 1605.8) & (,)\\
+	Phoenix + SpaceInvaders & (24.9, 640.5) & (46.6, 1877.8) & (,)\\
 \end{tabular}
-The first element of the tuple is the clamped reward which was used for training, second one the actual, unclamped reward.
+\\
+The first element of the tuple is the clamped reward which was used for training, second one the actual, unclamped reward of both games. The random rewards were averaged over
+20000 episodes while the rewards for the double DQN took around 3 million steps.
 
 }
 \end{columns}
