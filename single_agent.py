@@ -267,9 +267,9 @@ class SingleAgent(object):
         state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
         while not done:
-            action = self.select_action(state, mode='play')
+            action = self.select_action(state, mode='play')[0,0]
 
-            screen, reward, reward_clamped, done, info = self.env.step(action[0,0], mode='play')
+            screen, reward, _, done, _ = self.env.step(action, mode='play')
             score += reward
 
             #   save latest frame, discard oldest
@@ -284,15 +284,16 @@ class SingleAgent(object):
         self.env.game.close()
 
 
-    def random_play(self, n_games):
+    def play_stats(self, n_games, mode='random'):
         """
-        Play a game randomly and log results for statistics
+        Play N games randomly or evaluate a net and log results for statistics
 
         Input:
-        n_games: int Number of games to play
+        - n_games: int Number of games to play
+        - mode: str 'random' or 'evaluation'
         """
         # Subdirectory for logging
-        sub_dir = 'random_' + self.game + '/'
+        sub_dir = mode + '_' + self.game + '/'
         if not os.path.exists(sub_dir):
             os.makedirs(sub_dir)
 
@@ -300,12 +301,22 @@ class SingleAgent(object):
         reward_history = []
         reward_clamped_history = []
 
-        # Number of actions to sapmle from
+        # Number of actions to sample from
         n_actions = self.env.get_number_of_actions()
 
         for i_episode in range(1, n_games+1):
             # Reset game
-            self.env.reset()
+            screen = self.env.reset()
+
+            # Store screen
+            if mode=='evaluation':
+                # list of k last frames
+                last_k_frames = []
+                for j in range(self.num_stored_frames):
+                    last_k_frames.append(None)
+                    last_k_frames[j] = gray2pytorch(screen)
+                # frame is saved as ByteTensor -> convert to gray value between 0 and 1
+                state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
             # games end indicator variable
             done = False
@@ -315,10 +326,25 @@ class SingleAgent(object):
             total_reward_clamped = self.env.get_lives()
 
             while not done:
-                action = randrange(n_actions)
-                _, reward, reward_clamped, done, _ = self.env.step(action)
+                if mode=='random':
+                    action = randrange(n_actions)
+                elif mode=='evaluation':
+                    action = self.select_action(state, mode='play')[0,0]
+
+                screen, reward, reward_clamped, done, _ = self.env.step(action)
                 total_reward += int(reward)
                 total_reward_clamped += int(reward_clamped)
+
+                if mode=='evaluation':
+                    #   save latest frame, discard oldest
+                    for j in range(self.num_stored_frames-1):
+                        last_k_frames[j] = last_k_frames[j+1]
+                    last_k_frames[self.num_stored_frames-1] = gray2pytorch(screen)
+
+                    # convert frames to range 0 to 1 again
+                    state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
+
+
 
             # Print current result
             print('Episode: {:6}/{:6} |  '.format(i_episode, n_games),
@@ -336,11 +362,11 @@ class SingleAgent(object):
               'avg score after {:6} episodes: ({:.2f}/{:.2f})'.format(n_games, avg_reward_clamped, avg_reward))
 
         # Log results to files
-        with open(sub_dir + 'random.txt', 'w') as fp:
+        with open(sub_dir + mode + '.txt', 'w') as fp:
             fp.write('avg score after {:6} episodes: ({:.2f}/{:.2f})'.format(n_games, avg_reward,avg_reward_clamped))
-        with open(sub_dir + 'random_reward.pickle', 'wb') as fp:
+        with open(sub_dir + mode + '_reward.pickle', 'wb') as fp:
             pickle.dump(reward_history, fp)
-        with open(sub_dir + 'random_reward_clamped.pickle', 'wb') as fp:
+        with open(sub_dir + mode + '_reward_clamped.pickle', 'wb') as fp:
             pickle.dump(reward_clamped_history, fp)
 
 
@@ -412,7 +438,7 @@ class SingleAgent(object):
                 action = self.select_action(state)
 
                 # perform selected action on game
-                screen, reward, reward_clamped, done, info = self.env.step(action[0,0])#envTest.step(action[0,0])
+                screen, reward, reward_clamped, done, _ = self.env.step(action[0,0])
                 total_reward += int(reward)
                 total_reward_clamped += int(reward_clamped)
 

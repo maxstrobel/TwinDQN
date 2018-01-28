@@ -341,8 +341,8 @@ class DoubleAgent(object):
             action2 = action
 
             # perform selected action on game
-            screen1, reward1, reward1_clamped, done1, info1 = self.env1.step(action1, mode='play')
-            screen2, reward2, reward2_clamped, done2, info2 = self.env2.step(action2, mode='play')
+            screen1, reward1, _, done1, _ = self.env1.step(action1, mode='play')
+            screen2, reward2, _, done2, _ = self.env2.step(action2, mode='play')
 
             # Logging
             total_reward_game1 += int(reward1)
@@ -366,15 +366,16 @@ class DoubleAgent(object):
         self.env2.game.close()
 
 
-    def random_play(self, n_games):
+    def play_stats(self, n_games, mode='random'):
         """
-        Play a game randomly and log results for statistics
+        Play N games randomly or evaluate a net and log results for statistics
 
         Input:
-        n_games: int Number of games to play
+        - n_games: int Number of games to play
+        - mode: str 'random' or 'evaluation'
         """
         # Subdirectory for logging
-        sub_dir = 'random_' + self.game1 + '+' + self.game2 + '/'
+        sub_dir = mode + '_' + self.game1 + '+' + self.game2 + '/'
         if not os.path.exists(sub_dir):
             os.makedirs(sub_dir)
 
@@ -388,13 +389,23 @@ class DoubleAgent(object):
         reward_history_game2 = []
         reward_clamped_history_game2 = []
 
-        # Number of actions to sapmle from
+        # Number of actions to sample from
         n_actions = self.env2.get_number_of_actions()
 
         for i_episode in range(1, n_games+1):
             # Reset game
-            self.env1.reset()
-            self.env2.reset()
+            screen1 = self.env1.reset()
+            screen2 = self.env2.reset()
+
+            # Store screen
+            if mode=='evaluation':
+                # list of k last frames
+                last_k_frames = []
+                for j in range(self.num_stored_frames):
+                    last_k_frames.append(None)
+                    last_k_frames[j] = torch.cat((gray2pytorch(screen1),gray2pytorch(screen2)),dim=1)
+                # frame is saved as ByteTensor -> convert to gray value between 0 and 1
+                state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
             # games end indicator variable
             done = False
@@ -409,12 +420,15 @@ class DoubleAgent(object):
             total_reward_clamped = total_reward_clamped_game1 + total_reward_clamped_game2
 
             while not done:
-                action = randrange(n_actions)
+                if mode=='random':
+                    action = randrange(n_actions)
+                elif mode=='evaluation':
+                    action = self.select_action(state, mode='play')[0,0]
                 action1 = self.map_action(action)
                 action2 = action
 
-                _, reward1, reward1_clamped, done1, _ = self.env1.step(action1)
-                _, reward2, reward2_clamped, done2, _ = self.env2.step(action2)
+                screen1, reward1, reward1_clamped, done1, _ = self.env1.step(action1)
+                screen2, reward2, reward2_clamped, done2, _ = self.env2.step(action2)
 
                 # Logging
                 total_reward_game1 += int(reward1)
@@ -423,6 +437,15 @@ class DoubleAgent(object):
                 total_reward_clamped_game1 += reward1_clamped
                 total_reward_clamped_game2 += reward2_clamped
                 total_reward_clamped += reward1_clamped + reward2_clamped
+
+                if mode=='evaluation':
+                    # save latest frame, discard oldest
+                    for j in range(self.num_stored_frames-1):
+                        last_k_frames[j] = last_k_frames[j+1]
+                    last_k_frames[self.num_stored_frames-1] = torch.cat((gray2pytorch(screen1),gray2pytorch(screen2)),dim=1)
+
+                    # convert frames to range 0 to 1 again
+                    state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
                 # Merged game over indicator
                 done = done1 or done2
@@ -456,25 +479,25 @@ class DoubleAgent(object):
               'avg game2: ({:6.1f}/{:7.1f})\n'.format(avg_reward_game2_clamped,avg_reward_game2))
 
         # Log results to files
-        with open(sub_dir + 'random.txt', 'w') as fp:
+        with open(sub_dir + mode + '.txt', 'w') as fp:
             fp.write('avg score after {:6} episodes:\n'.format(n_games) +
                      'avg total: ({:6.1f}/{:7.1f})\n'.format(avg_reward_total_clamped,avg_reward_total) +
                      'avg game1: ({:6.1f}/{:7.1f})\n'.format(avg_reward_game1_clamped,avg_reward_game1) +
                      'avg game2: ({:6.1f}/{:7.1f})\n'.format(avg_reward_game2_clamped,avg_reward_game2))
 
         # Dump reward
-        with open(sub_dir + 'random_reward_game1.pickle', 'wb') as fp:
+        with open(sub_dir + mode + '_reward_game1.pickle', 'wb') as fp:
             pickle.dump(reward_history_game1, fp)
-        with open(sub_dir + 'random_reward_game2.pickle', 'wb') as fp:
+        with open(sub_dir + mode + '_reward_game2.pickle', 'wb') as fp:
             pickle.dump(reward_history_game2, fp)
-        with open(sub_dir + 'random_reward_total.pickle', 'wb') as fp:
+        with open(sub_dir + mode + '_reward_total.pickle', 'wb') as fp:
             pickle.dump(reward_history, fp)
 
-        with open(sub_dir + 'random_reward_clamped_game1', 'wb') as fp:
+        with open(sub_dir + mode + '_reward_clamped_game1', 'wb') as fp:
             pickle.dump(reward_clamped_history_game1, fp)
-        with open(sub_dir + 'random_reward_clamped_game2', 'wb') as fp:
+        with open(sub_dir + mode + '_reward_clamped_game2', 'wb') as fp:
             pickle.dump(reward_clamped_history_game2, fp)
-        with open(sub_dir + 'random_reward_clamped_total', 'wb') as fp:
+        with open(sub_dir + mode + '_reward_clamped_total', 'wb') as fp:
             pickle.dump(reward_clamped_history, fp)
 
 
@@ -584,8 +607,8 @@ class DoubleAgent(object):
                 action2 = action[0,0]
 
                 # perform selected action on game
-                screen1, reward1, reward1_clamped, done1, info1 = self.env1.step(action1)
-                screen2, reward2, reward2_clamped, done2, info2 = self.env2.step(action2)
+                screen1, reward1, reward1_clamped, done1, _ = self.env1.step(action1)
+                screen2, reward2, reward2_clamped, done2, _ = self.env2.step(action2)
 
                 # Logging
                 total_reward_game1 += int(reward1)
