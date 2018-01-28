@@ -161,6 +161,7 @@ class DoubleAgent(object):
         EPSILON_START = 1
         EPSILON_END = 0.1
         EPSILON_DECAY = 1000000
+        EPSILON_PLAY = 0.05
         MAXNOOPS = 30
 
         # Decrease of epsilon value
@@ -168,10 +169,12 @@ class DoubleAgent(object):
             #epsilon = EPSILON_END + (EPSILON_START - EPSILON_END) * \
             #                        np.exp(-1. * (self.steps-self.batch_size) / EPSILON_DECAY)
             epsilon = EPSILON_START - self.steps * (EPSILON_START - EPSILON_END) / EPSILON_DECAY
+        elif mode=='play':
+            epsilon = EPSILON_PLAY
         else:
             epsilon = EPSILON_END
 
-        if epsilon < random() or mode=='play':
+        if epsilon < random():
             # Action according to neural net
             # Wrap tensor into variable
             state_variable = Variable(observation, volatile=True)

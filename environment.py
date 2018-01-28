@@ -155,6 +155,12 @@ class Environment(object):
             if lives_before>lives_after:
                 penalty = -1.0
         elif mode=='play':
+            # Frameskip (-2 frames for removement of flickering)
+            for i in range(self.frameskip-2):
+                obs, reward, done, info = self.game.step(action)
+                total_reward += reward
+                self.game.render(mode='human')
+
             observation0, reward, done, info = self.game.step(action)
             total_reward += reward
             self.game.render(mode='human')

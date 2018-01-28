@@ -16,7 +16,7 @@ def main(args):
     if args.game==4:
         game='Assault'
 
-    agent = SingleAgent(game, pretrained_model=args.pretrained_model)
+    agent = SingleAgent(game, pretrained_model=args.m)
 
     if args.play:
         for i in range(args.play):
@@ -39,7 +39,7 @@ if __name__ == '__main__':
     parser.add_argument('-t','--train', action='store_true',  help='The agent will be trained (default behavior)')
     parser.add_argument('-p','--play', metavar='N', type=int, help='The agent will play N games')
     parser.add_argument('-r','--random', metavar='N', type=int, help='Play for N episodes randomly and log avg results for statistics')
-    parser.add_argument('-m','--pretrained_model', help='The agent will use the specified net', type=str)
+    parser.add_argument('-m', help='The agent will use the specified net', type=str)
     args = parser.parse_args()
 
     main(args)
