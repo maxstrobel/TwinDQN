@@ -359,7 +359,7 @@ class SingleAgent(object):
 
         # Print final result
         print('\n\n=============================================\n' +
-              'avg score after {:6} episodes: ({:.2f}/{:.2f})'.format(n_games, avg_reward_clamped, avg_reward))
+              'avg score after {:6} episodes: ({:.2f}/{:.2f})\n'.format(n_games, avg_reward_clamped, avg_reward))
 
         # Log results to files
         with open(sub_dir + mode + '.txt', 'w') as fp:
