@@ -106,7 +106,7 @@
 	    \newline
     	\begin{tikzpicture}
 		\node[inner sep=0pt] (Architecture1) at (0,0)
-    	{\includegraphics[width=.3\textwidth]{movement.png}};
+    	{\includegraphics[width=.2965\textwidth]{movement.png}};
     	\end{tikzpicture}
     }
     \block{Preprocessing \& Environment}{
@@ -122,7 +122,7 @@
 	    \newline
 		\begin{tikzpicture}
 		\node[inner sep=0pt] (preprocessing) at (0,0)
-    	{\includegraphics[width=.3\textwidth]{preprocessing_pipeline.png}};
+    	{\includegraphics[width=.2965\textwidth]{preprocessing_pipeline.png}};
     	\end{tikzpicture}
 	    \newline
 	    \newline
@@ -145,7 +145,7 @@
     \block{Proposed Architecture}{
     	\begin{tikzpicture}
 		\node[inner sep=0pt] (Architecture1) at (0,0)
-    	{\includegraphics[width=.3\textwidth]{two_nets.png}};
+    	{\includegraphics[width=.305\textwidth]{two_nets.png}};
     	\end{tikzpicture}
     	\newline
 	    \newline
@@ -165,41 +165,47 @@
     \block{Visualization}{
     	\begin{tikzpicture}
 		\node[inner sep=0pt] (filter_breakout) at (0,0)
-    	{\includegraphics[width=.3\textwidth]{filter_breakout.png}};
+    	{\includegraphics[width=.291\textwidth]{filter_breakout.png}};
     	\end{tikzpicture}	
     	\begin{tikzpicture}
 		\node[inner sep=0pt] (filter_breakout) at (0,0)
-    	{\includegraphics[width=.3\textwidth]{filter_spaceinvaders.png}};
+    	{\includegraphics[width=.291\textwidth]{filter_spaceinvaders.png}};
     	\end{tikzpicture}
 		\newline
-		The above pictures show the convolution filters of the first layer of the subnets.
-		The top right picture, for example, shows the velocity and the position of the ball.
+		The above pictures show the convolution filters of the first layer of the subnets and screens
+		processed by them. Those filters are used to determine for example, the velocity and the 	
+		direction of motion of the ball in Breakout.
    	}   	
    	
     \block{Results}{
+		\begin{center}
+		\begin{tabular}{ | l | c c c|}
+			\hline
+		 	Games & Total & Game 1 & Game 2 \\
+			\hline
+			Breakout + SpaceInvaders (Random) 	& (6.9, 40.3) &  (0.9, 0.9) & (6.0, 39.4) \\
+			Breakout + SpaceInvaders (Twin DQN) & (64.6, 672.9) &  (26.4, 34.9) & (38.2 , 638.1) \\ \hline
+			Phoenix + SpaceInvaders (Random) 	& (24.9, 640.5) & (9.4, 159.1) & (15.4, 481.4)\\
+			Phoenix + SpaceInvaders (Twin DQN) 	& (,) & (,) & (,)\\
+			\hline
+		\end{tabular}
+		\newline
+		\end{center}
+
 		The first element of the tuple is the clamped reward which was used for training, second one the
 		actual, unclamped reward of the games. The random rewards were averaged over 20000 episodes, while we
 		evaluated the Twin DQN on 1000 episodes. It is quite hard to compare these results to
 		human performance since there are no records of humans playing two games simultaniously with just one
 		controller.
 		\newline
-		\begin{center}
-		\begin{tabular}{ | l | c c c|}
-			\hline
-		 	Games & Total & Game 1 & Game 2 \\
-			\hline
-			Breakout + SpaceInvaders (Random) 	& (7.4, 45.1) &  (1.1, 1.1) & (6.3, 44.0) \\
-			Breakout + SpaceInvaders (Twin DQN) & (,) &  (,) & (,) \\ \hline
-			Phoenix + SpaceInvaders (Random) 	& (,) & (,) & (,)\\
-			Phoenix + SpaceInvaders (Twin DQN) 	& (,) & (,) & (,)\\
-			\hline
-		\end{tabular}
-		\end{center}
+		\newline
 		\begin{tikzpicture}
 		\node[inner sep=0pt] (training) at (0,0)
-    	{\includegraphics[width=.3\textwidth]{training.png}};
+    	{\includegraphics[width=.291\textwidth]{training.png}};
     	\end{tikzpicture}
-    	[1]: (Mnih et al. 2015)
+    	\begin{flushright}
+    	[1]: Mnih et al. 2015, Human-level control through deep reinforcement learning
+    	\end{flushright}
 	}
 \end{columns}
 
