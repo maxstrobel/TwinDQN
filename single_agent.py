@@ -279,7 +279,7 @@ class SingleAgent(object):
 
             # convert frames to range 0 to 1 again
             state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
-
+            self.state = state
         print('Final score {}: {}'.format(self.game, score))
         self.env.game.close()
 
@@ -348,7 +348,7 @@ class SingleAgent(object):
 
             # Print current result
             print('Episode: {:6}/{:6} |  '.format(i_episode, n_games),
-                  'score: ({:4}/{:4})'.format(total_reward_clamped,total_reward))
+                  'score: ({:4}/{:4})\n'.format(total_reward_clamped,total_reward))
 
             # Save rewards
             reward_history.append(total_reward)

@@ -43,7 +43,7 @@ if __name__ == '__main__':
     parser.add_argument('games', type=int, choices=range(1,5), help='Select the both games, that should be played:\n' +
                                                                     '(1) Breakout and SpaceInvaders\n' +
                                                                     '(2) SpaceInvaders and Assault\n' +
-                                                                    '(3) Breakout and Phoenix\n' +
+                                                                    '(3) SpaceInvaders and Phoenix\n' +
                                                                     '(4) Assault and Phoenix')
 
     parser.add_argument('-t','--train', action='store_true',  help='The agent will be trained (default behavior)')

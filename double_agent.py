@@ -454,7 +454,7 @@ class DoubleAgent(object):
             print('Episode: {:6}/{:6} |   '.format(i_episode, n_games) +
                   'score total: ({:6.1f}/{:7.1f}) |   '.format(total_reward_clamped,total_reward) +
                   'score game1: ({:6.1f}/{:7.1f}) |   '.format(total_reward_clamped_game1,total_reward_game1) +
-                  'score game2: ({:6.1f}/{:7.1f})'.format(total_reward_clamped_game2,total_reward_game2))
+                  'score game2: ({:6.1f}/{:7.1f})\n'.format(total_reward_clamped_game2,total_reward_game2))
 
             # Save rewards
             reward_history_game1.append(total_reward_game1)
