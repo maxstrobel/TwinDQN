@@ -1,0 +1,4 @@
+avg score after   1000 episodes:
+avg total: (  57.2/ 2579.5)
+avg game1: (  29.2/  487.6)
+avg game2: (  28.0/ 2091.8)
