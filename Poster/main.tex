@@ -75,7 +75,7 @@
 \colorlet{backgroundcolor}{white}
 
 % title matter
-\title{DL4CV Project}
+\title{Twin DQN}
 
 \author[1]{Strobel Maximilian}
 \author[1]{Werhahn Maximilian}
@@ -93,7 +93,7 @@
 \maketitle
 
 \begin{columns}
-    \column{0.3}
+    \column{0.33}
     \block{Our Idea}{
 	    For this project we tried adapting already existing methods of reinforcement learning for Atari
     	2600 games to train a new architecture to play two Atari games simultaniously only using the same
@@ -105,7 +105,7 @@
 	  
     	\begin{tikzpicture}
 		\node[inner sep=0pt] (Architecture1) at (0,0)
-    	{\includegraphics[width=.26\textwidth]{movement.png}};
+    	{\includegraphics[width=.3\textwidth]{movement.png}};
     	\end{tikzpicture}
     }
     \block{Preprocessing \& Environment}{
@@ -120,7 +120,7 @@
     	
 		\begin{tikzpicture}
 		\node[inner sep=0pt] (preprocessing) at (0,0)
-    	{\includegraphics[width=.26\textwidth]{preprocessing_pipeline.png}};
+    	{\includegraphics[width=.3\textwidth]{preprocessing_pipeline.png}};
     	\end{tikzpicture}
     	
     	In OpenAI gym there exists a frame skipping technique, that was also modified. Instead of
@@ -130,15 +130,15 @@
     	the real reward was.
     }
 
-    \column{0.4}
+    \column{0.34}
     \block{Single Game}{
-
-}
+		We used for the training of single games 
+	}
     \block{Proposed Architecture}{
     
     	\begin{tikzpicture}
 		\node[inner sep=0pt] (Architecture1) at (0,0)
-    	{\includegraphics[width=.26\textwidth]{two_nets.png}};
+    	{\includegraphics[width=.3\textwidth]{two_nets.png}};
     	\end{tikzpicture}
     	
 		For this architecture we duplicated the already existing DQN model, removed the output
@@ -150,39 +150,46 @@
 		also achieves the best scores of all the architectures we tried out.
 	}
 
-    \column{0.3}
+    \column{0.33}
     \block{Visualization}{   
     
     	\begin{tikzpicture}
 		\node[inner sep=0pt] (filter_breakout) at (0,0)
-    	{\includegraphics[width=.26\textwidth]{filter_breakout.png}};
+    	{\includegraphics[width=.3\textwidth]{filter_breakout.png}};
     	\end{tikzpicture}
     	
     	\begin{tikzpicture}
 		\node[inner sep=0pt] (filter_breakout) at (0,0)
-    	{\includegraphics[width=.26\textwidth]{filter_spaceinvaders.png}};
+    	{\includegraphics[width=.3\textwidth]{filter_spaceinvaders.png}};
     	\end{tikzpicture}
     	
    	}   	
+   	
     \block{Results}{
-    
-        \begin{tikzpicture}
-		\node[inner sep=0pt] (training) at (0,0)
-    	{\includegraphics[width=.26\textwidth]{training.png}};
-    	\end{tikzpicture}
-    	
-		\begin{tabular}{ l | c c c}
-	 		Games & Random Play & Double DQN  \\
-			\hline
-			Breakout + SpaceInvaders & (6.9, 40.3) &  (,) \\
-			Phoenix + SpaceInvaders & (24.9, 640.5) & (46.6, 1877.8)\\
-		\end{tabular}
-		\\
+
 		The first element of the tuple is the clamped reward which was used for training, second one the
 		actual, unclamped reward of both games. The random rewards were averaged over 20000 episodes while the
 		rewards for the double DQN took around 3 million steps. It is quite hard to compare these results to
 		human performance since there are no records of humans playing two games simultaniously with just one
 		controller.
+		
+		    \centering
+			\begin{tabular}{ | l | c c c|}
+				\hline
+		 		Games & Total & Game 1 & Game 2 \\
+				\hline
+				Breakout + SpaceInvaders (Random) 	& (7.4, 45.1) &  (1.1, 1.1) & (6.3, 44.0) \\
+				Breakout + SpaceInvaders (Twin DQN) & (,) &  (,) & (,) \\ \hline
+				Phoenix + SpaceInvaders (Random) 	& (,) & (,) & (,)\\
+				Phoenix + SpaceInvaders (Twin DQN) 	& (,) & (,) & (,)\\
+				\hline
+			\end{tabular}
+			
+		\begin{tikzpicture}
+		\node[inner sep=0pt] (training) at (0,0)
+    	{\includegraphics[width=.3\textwidth]{training.png}};
+    	\end{tikzpicture}
+    	
 	}
 \end{columns}
 
