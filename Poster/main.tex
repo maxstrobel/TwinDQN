@@ -132,7 +132,7 @@
 
     \column{0.4}
     \block{Single Game}{
-
+		For a single game we tried to implement the architecture proposed in the paper "Human-level control through deep reinforcement learning" (Mnih et al. 2015) which is the basis of our developed model for two games. For training we used a replaymemory where we saved the frames of the game and the corresponding rewards, actions and the state of the game(running or done), a target network and the Adam solver instead of the RMSprop variant proposed in the paper to optimize our network. As a loss function we used the smooth L1-loss and we clamped the rewards and the gradients between -1 and 1 to let the agent be able to learn multiple games with the same parameters.
 }
     \block{Proposed Architecture}{
     
@@ -147,7 +147,7 @@
 		action. Each of the two preprocessed frame histories is fed into one of the subnets separately.
 		The resulting output action is then again mapped onto a second action which is used for the other
 		game. With this version we already achieved our first goal which is being better than random play and it 
-		also achieves the best scores of all the architectures we tried out.
+		also achieves the best scores of all the architectures we tried out. As another architecture we used the same one which was used for a single game but we adapted the input by concatenating the input frames of the two games. The other version we tried was instead of concatenating along the width of the frames we tried to put both inputs in the channel dimension. These two approaches did not yield any good results.
 	}
 
     \column{0.3}
@@ -171,7 +171,7 @@
     	{\includegraphics[width=.26\textwidth]{training.png}};
     	\end{tikzpicture}
     	
-		\begin{tabular}{ l | c c c}
+		\begin{tabular}{ l | c c}
 	 		Games & Random Play & Double DQN  \\
 			\hline
 			Breakout + SpaceInvaders & (6.9, 40.3) &  (,) \\
