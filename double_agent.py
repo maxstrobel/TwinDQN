@@ -161,7 +161,7 @@ class DoubleAgent(object):
         EPSILON_START = 1
         EPSILON_END = 0.1
         EPSILON_DECAY = 1000000
-        EPSILON_PLAY = 0.05
+        EPSILON_PLAY = 0.01
         MAXNOOPS = 30
 
         # Decrease of epsilon value
