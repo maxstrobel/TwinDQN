@@ -348,7 +348,7 @@ class SingleAgent(object):
 
             # Print current result
             print('Episode: {:6}/{:6} |  '.format(i_episode, n_games),
-                  'score: ({:4}/{:4})\n'.format(total_reward_clamped,total_reward))
+                  'score: ({:4}/{:4})'.format(total_reward_clamped,total_reward))
 
             # Save rewards
             reward_history.append(total_reward)
@@ -363,7 +363,7 @@ class SingleAgent(object):
 
         # Log results to files
         with open(sub_dir + mode + '.txt', 'w') as fp:
-            fp.write('avg score after {:6} episodes: ({:.2f}/{:.2f})'.format(n_games, avg_reward,avg_reward_clamped))
+            fp.write('avg score after {:6} episodes: ({:.2f}/{:.2f})\n'.format(n_games, avg_reward_clamped, avg_reward))
         with open(sub_dir + mode + '_reward.pickle', 'wb') as fp:
             pickle.dump(reward_history, fp)
         with open(sub_dir + mode + '_reward_clamped.pickle', 'wb') as fp:

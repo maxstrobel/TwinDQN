@@ -186,7 +186,7 @@
 			Breakout + SpaceInvaders (Random) 	& (6.9, 40.3) &  (0.9, 0.9) & (6.0, 39.4) \\
 			Breakout + SpaceInvaders (Twin DQN) & (64.6, 672.9) &  (26.4, 34.9) & (38.2 , 638.1) \\ \hline
 			Phoenix + SpaceInvaders (Random) 	& (24.9, 640.5) & (9.4, 159.1) & (15.4, 481.4)\\
-			Phoenix + SpaceInvaders (Twin DQN) 	& (,) & (,) & (,)\\
+			Phoenix + SpaceInvaders (Twin DQN) 	& (57.2,2579.5) & (29.2,487.6) & (28.0,2091.8)\\
 			\hline
 		\end{tabular}
 		\newline
@@ -194,9 +194,7 @@
 
 		The first element of the tuple is the clamped reward which was used for training, second one the
 		actual, unclamped reward of the games. The random rewards were averaged over 20000 episodes, while we
-		evaluated the Twin DQN on 1000 episodes. It is quite hard to compare these results to
-		human performance since there are no records of humans playing two games simultaniously with just one
-		controller.
+		evaluated the Twin DQN on 1000 episodes with a frameskip of 4 and a probability of 0.01 to take a random action instead of the action selected by the network.
 		\newline
 		\newline
 		\begin{tikzpicture}

@@ -361,7 +361,7 @@ class DoubleAgent(object):
             done = done1 or done2
         print('Final score {}: {}'.format(self.game1, total_reward_game1))
         print('Final score {}: {}'.format(self.game2, total_reward_game2))
-        print('Final score (total):', total_reward)
+        print('Final score (total): {}'.format(total_reward))
         self.env1.game.close()
         self.env2.game.close()
 
@@ -454,7 +454,7 @@ class DoubleAgent(object):
             print('Episode: {:6}/{:6} |   '.format(i_episode, n_games) +
                   'score total: ({:6.1f}/{:7.1f}) |   '.format(total_reward_clamped,total_reward) +
                   'score game1: ({:6.1f}/{:7.1f}) |   '.format(total_reward_clamped_game1,total_reward_game1) +
-                  'score game2: ({:6.1f}/{:7.1f})\n'.format(total_reward_clamped_game2,total_reward_game2))
+                  'score game2: ({:6.1f}/{:7.1f})'.format(total_reward_clamped_game2,total_reward_game2))
 
             # Save rewards
             reward_history_game1.append(total_reward_game1)
