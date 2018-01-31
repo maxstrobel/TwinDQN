@@ -75,7 +75,7 @@
 \colorlet{backgroundcolor}{white}
 
 % title matter
-\title{Twin DQN}
+\title{Twin DQN - Two tasks, one net }
 
 \author[1]{Strobel Maximilian}
 \author[1]{Werhahn Maximilian}
@@ -96,7 +96,7 @@
     \column{0.33}
     \block{Our Idea}{
 	    For this project we tried adapting already existing methods of reinforcement learning for Atari
-    	2600 games to train a new architecture to play two Atari games simultaniously only using the same
+    	2600 games to train a new architecture to play two Atari games simultaniously; only using the same
 	    action for both. Before coming up with a new architecture we first trained a Deep-Q-Learning neural
     	network on multiple single games. For the game Breakout we achieved above human-performance with this
 	    trained model which was our first goal of this project. After finishing this task we tried various
@@ -108,6 +108,9 @@
 		\node[inner sep=0pt] (Architecture1) at (0,0)
     	{\includegraphics[width=.2965\textwidth]{movement.png}};
     	\end{tikzpicture}
+    	\newline
+	    \newline
+	    Check out our GitHub repository: \textbf{https://github.com/ms828/TwinDQN}
     }
     \block{Preprocessing \& Environment}{
     	The environment for the learning agents was OpenAI gym. This toolkit for
@@ -126,7 +129,7 @@
     	\end{tikzpicture}
 	    \newline
 	    \newline
-    	In OpenAI gym there exists a frame skipping technique, that was also modified. Instead of
+    	There is a frame skipping technique in the OpenAI framework, that was also modified. Instead of
     	skipping randomly between two and four frames, the frame skipping rate was set to a constant
     	value. During the training the rewards were clamped to -1 and 1 to gain comparability between
     	different games. Additional the loss of one live was punished with a reward of -1, whatever
@@ -136,9 +139,9 @@
     \column{0.34}
     \block{Single Game}{
 		For a single game we tried to implement the architecture proposed in the paper "Human-level control through deep reinforcement
-		learning"\textsuperscript{[1]} which is the basis of our developed model for two games. For training we used a replaymemory where we
-		saved the frames of the game and the corresponding rewards, actions and the state of the game(running or done), a target network and
-		the Adam solver instead of the RMSprop variant proposed in the paper to optimize our network. As a loss function we used the smooth
+		learning"\textsuperscript{[1]} which is the basis of our developed model for two games. For training we used a replay memory where we
+		saved the frames of the game and the corresponding rewards, actions and the state of the game(running or done). Besides that we implemented a target network and
+		the Adam solver instead of the RMSprop variant proposed in the paper to optimize our network. As loss function we used the smooth
 		L1-loss and we clamped the rewards and the gradients between -1 and 1 to let the agent be able to learn multiple games with the same
 		parameters.
 }
@@ -149,15 +152,13 @@
     	\end{tikzpicture}
     	\newline
 	    \newline
-		For this architecture we duplicated the already existing DQN model, removed the output
+		For our working architecture we duplicated the already existing DQN model, removed the output
 		layers of both subnets and added two additional fully connected layers of size 512 and the
-		maximum of the action spaces of the games to map the input screens of both games to one single
-		action. Each of the two preprocessed frame histories is fed into one of the subnets separately.
-		The resulting output action is then again mapped onto a second action which is used for the other
-		game. With this version we already achieved our first goal which is being better than random play and it 
-		also achieves the best scores of all the architectures we tried out. As another architecture we used the same
-		one which was used for a single game but we adapted the input by concatenating the input frames of the two games. The other version
-		we tried was instead of concatenating along the width of the frames we tried to put both inputs in the channel dimension. These two
+		maximum of the action spaces of the games. The actions for the game with the smaller action space were obtained by a mapping function, that adpats simliar actions. Each of the two preprocessed frame histories is fed into one of the subnets separately. The outcome of the two subnets is finally unified by the fully connected layers, that compute the Q-values for all possible actions. \newline
+		 With this version we already achieved our first goal which is being better than random play and it 
+		also achieves the best scores of all the architectures we tried out. As another model we implemented the same network 
+		 we used for a single game, but we adapted the input by concatenating the frames of the two games. The other version
+		we tried was stacking the screens in the channel dimension, instead of concatenating the frames along the width. These two
 		approaches did not yield any good results.
 	}
 
@@ -184,9 +185,9 @@
 		 	Games & Total & Game 1 & Game 2 \\
 			\hline
 			Breakout + SpaceInvaders (Random) 	& (6.9, 40.3) &  (0.9, 0.9) & (6.0, 39.4) \\
-			Breakout + SpaceInvaders (Twin DQN) & (64.6, 672.9) &  (26.4, 34.9) & (38.2 , 638.1) \\ \hline
+			Breakout + SpaceInvaders (Twin DQN) & (67.8, 697.0) &  (27.1, 34.5) & (40.6, 662.5) \\ \hline
 			Phoenix + SpaceInvaders (Random) 	& (24.9, 640.5) & (9.4, 159.1) & (15.4, 481.4)\\
-			Phoenix + SpaceInvaders (Twin DQN) 	& (57.2,2579.5) & (29.2,487.6) & (28.0,2091.8)\\
+			Phoenix + SpaceInvaders (Twin DQN) 	& (57.2, 2579.5) & (29.2, 487.6) & (28.0, 2091.8)\\
 			\hline
 		\end{tabular}
 		\newline
@@ -194,7 +195,7 @@
 
 		The first element of the tuple is the clamped reward which was used for training, second one the
 		actual, unclamped reward of the games. The random rewards were averaged over 20000 episodes, while we
-		evaluated the Twin DQN on 1000 episodes with a frameskip of 4 and a probability of 0.01 to take a random action instead of the action selected by the network.
+		evaluated the Twin DQN on 1000 episodes with a frameskip of 4 and a probability of 0.01 of taking a random action instead of the action selected by the network.
 		\newline
 		\newline
 		\begin{tikzpicture}
