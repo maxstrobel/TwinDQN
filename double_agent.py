@@ -14,7 +14,7 @@ import pickle
 import os
 
 from environment import Environment
-from double_dqn import DoubleDQN
+from twin_dqn import TwinDQN
 from replaymemory import ReplayMemory
 
 # if gpu is to be used
@@ -89,12 +89,12 @@ class DoubleAgent(object):
         # Neural net
         self.pretrained_subnet1 = pretrained_subnet1
         self.pretrained_subnet2 = pretrained_subnet2
-        self.net = DoubleDQN(channels_in = state_buffer_size,
+        self.net = TwinDQN(channels_in = state_buffer_size,
                              num_actions = self.env2.get_number_of_actions(),
                              pretrained_subnet1 = pretrained_subnet1,
                              pretrained_subnet2 = pretrained_subnet2,
                              frozen = frozen)
-        self.target_net = DoubleDQN(channels_in = state_buffer_size,
+        self.target_net = TwinDQN(channels_in = state_buffer_size,
                                     num_actions = self.env2.get_number_of_actions(),
                                     pretrained_subnet1 = pretrained_subnet1,
                                     pretrained_subnet2 = pretrained_subnet2,

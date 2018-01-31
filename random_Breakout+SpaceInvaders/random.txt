@@ -1,4 +1,0 @@
-avg score after  10000 episodes:
-avg total: (   7.4/   45.1)
-avg game1: (   1.1/    1.1)
-avg game2: (   6.3/   44.0)
