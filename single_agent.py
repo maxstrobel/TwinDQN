@@ -248,39 +248,43 @@ class SingleAgent(object):
         return loss.data.cpu().numpy()[0]
 
 
-    def play(self):
+    def play(self, n):
         """
         Play a game with the current net and render it
+
+        Inputs:
+        - n: games to play
         """
-        done = False # games end indicator variable
-        score = 0
-        # Reset game
-        screen = self.env.reset()
+        for i in range(n):
+            done = False # games end indicator variable
+            score = 0
+            # Reset game
+            screen = self.env.reset()
 
-        # list of k last frames
-        last_k_frames = []
-        for j in range(self.num_stored_frames):
-            last_k_frames.append(None)
-            last_k_frames[j] = gray2pytorch(screen)
+            # list of k last frames
+            last_k_frames = []
+            for j in range(self.num_stored_frames):
+                last_k_frames.append(None)
+                last_k_frames[j] = gray2pytorch(screen)
 
-        # frame is saved as ByteTensor -> convert to gray value between 0 and 1
-        state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
-
-        while not done:
-            action = self.select_action(state, mode='play')[0,0]
-
-            screen, reward, _, done, _ = self.env.step(action, mode='play')
-            score += reward
-
-            #   save latest frame, discard oldest
-            for j in range(self.num_stored_frames-1):
-                last_k_frames[j] = last_k_frames[j+1]
-            last_k_frames[self.num_stored_frames-1] = gray2pytorch(screen)
-
-            # convert frames to range 0 to 1 again
+            # frame is saved as ByteTensor -> convert to gray value between 0 and 1
             state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
-            self.state = state
-        print('Final score {}: {}'.format(self.game, score))
+
+            while not done:
+                action = self.select_action(state, mode='play')[0,0]
+
+                screen, reward, _, done, _ = self.env.step(action, mode='play')
+                score += reward
+
+                #   save latest frame, discard oldest
+                for j in range(self.num_stored_frames-1):
+                    last_k_frames[j] = last_k_frames[j+1]
+                last_k_frames[self.num_stored_frames-1] = gray2pytorch(screen)
+
+                # convert frames to range 0 to 1 again
+                state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
+                self.state = state
+            print('Game ({}/{}) - Final score {}: {}'.format(i+1, n, self.game, score))
         self.env.game.close()
 
 

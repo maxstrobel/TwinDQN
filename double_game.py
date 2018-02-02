@@ -27,8 +27,7 @@ def main(args):
                         frozen = args.freeze)
 
     if args.play:
-        for i in range(args.play):
-            agent.play()
+        agent.play(args.play)
     elif args.random:
         agent.play_stats(args.random, mode ='random')
     elif args.eval:
