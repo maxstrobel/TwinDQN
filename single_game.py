@@ -19,8 +19,7 @@ def main(args):
     agent = SingleAgent(game, pretrained_model=args.model)
 
     if args.play:
-        for i in range(args.play):
-            agent.play()
+        agent.play(n=args.play)
     elif args.random:
         agent.play_stats(args.random, mode ='random')
     elif args.eval:

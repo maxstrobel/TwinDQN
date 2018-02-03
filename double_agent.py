@@ -311,57 +311,61 @@ class DoubleAgent(object):
         return loss.data.cpu().numpy()[0]
 
 
-    def play(self):
+    def play(self, n):
         """
         Play a game with the current net and render it
+
+        Inputs:
+        - n: games to play
         """
-        done = False # games end indicator variable
+        for i in range(n):
+            done = False # games end indicator variable
 
-        # Score counter
-        total_reward_game1 = 0
-        total_reward_game2 = 0
-        total_reward = 0
+            # Score counter
+            total_reward_game1 = 0
+            total_reward_game2 = 0
+            total_reward = 0
 
-        # Reset game
-        screen1 = self.env1.reset()
-        screen2 = self.env2.reset()
+            # Reset game
+            screen1 = self.env1.reset()
+            screen2 = self.env2.reset()
 
-        # list of k last frames
-        last_k_frames = []
-        for j in range(self.num_stored_frames):
-            last_k_frames.append(None)
-            last_k_frames[j] = torch.cat((gray2pytorch(screen1),gray2pytorch(screen2)),dim=1)
+            # list of k last frames
+            last_k_frames = []
+            for j in range(self.num_stored_frames):
+                last_k_frames.append(None)
+                last_k_frames[j] = torch.cat((gray2pytorch(screen1),gray2pytorch(screen2)),dim=1)
 
-        # frame is saved as ByteTensor -> convert to gray value between 0 and 1
-        state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
-
-        while not done:
-            action = self.select_action(state, mode='play')[0,0]
-            action1 = self.map_action(action)
-            action2 = action
-
-            # perform selected action on game
-            screen1, reward1, _, done1, _ = self.env1.step(action1, mode='play')
-            screen2, reward2, _, done2, _ = self.env2.step(action2, mode='play')
-
-            # Logging
-            total_reward_game1 += int(reward1)
-            total_reward_game2 += int(reward2)
-            total_reward += int(reward1) + int(reward2)
-
-            # save latest frame, discard oldest
-            for j in range(self.num_stored_frames-1):
-                last_k_frames[j] = last_k_frames[j+1]
-            last_k_frames[self.num_stored_frames-1] = torch.cat((gray2pytorch(screen1),gray2pytorch(screen2)),dim=1)
-
-            # convert frames to range 0 to 1 again
+            # frame is saved as ByteTensor -> convert to gray value between 0 and 1
             state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
 
-            # Merged game over indicator
-            done = done1 or done2
-        print('Final score {}: {}'.format(self.game1, total_reward_game1))
-        print('Final score {}: {}'.format(self.game2, total_reward_game2))
-        print('Final score (total): {}'.format(total_reward))
+            while not done:
+                action = self.select_action(state, mode='play')[0,0]
+                action1 = self.map_action(action)
+                action2 = action
+
+                # perform selected action on game
+                screen1, reward1, _, done1, _ = self.env1.step(action1, mode='play')
+                screen2, reward2, _, done2, _ = self.env2.step(action2, mode='play')
+
+                # Logging
+                total_reward_game1 += int(reward1)
+                total_reward_game2 += int(reward2)
+                total_reward += int(reward1) + int(reward2)
+
+                # save latest frame, discard oldest
+                for j in range(self.num_stored_frames-1):
+                    last_k_frames[j] = last_k_frames[j+1]
+                last_k_frames[self.num_stored_frames-1] = torch.cat((gray2pytorch(screen1),gray2pytorch(screen2)),dim=1)
+
+                # convert frames to range 0 to 1 again
+                state = torch.cat(last_k_frames,1).type(FloatTensor)/255.0
+
+                # Merged game over indicator
+                done = done1 or done2
+            print('Final scores Game ({}/{}): {}: {}    '.format(i+1, n, self.game1, total_reward_game1) +
+                  '{}: {}    '.format(self.game2, total_reward_game2) +
+                  'total: {}'.format(total_reward))
         self.env1.game.close()
         self.env2.game.close()
 
