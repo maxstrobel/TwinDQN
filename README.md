@@ -4,6 +4,7 @@ This implemention contains the work for the DL4CV project WS17/18 at TUM.
 
 Our goal was to train an agent, that is capable to play two games at once, with the same inputs.
 You can imagine this as playing two games with one controller and trying to be as good as possible.
+**If you want to move an agent, the other agent moves simultaneously in the same direction.**
 
 ![twogames](ProjectProposal/overview.jpg)
 
@@ -37,6 +38,8 @@ To train or play two games at once use:
 ## Results
 
 Result of training the games Breakout & SpaceInvaders for 15000 games
+
+**Both agents move at every step into the same direction. Because SpaceInvaders is less sensitive to controller inputs, you have to watch carefully to notice the synchronous motions**
 
 ![demo](demo.gif)
 
